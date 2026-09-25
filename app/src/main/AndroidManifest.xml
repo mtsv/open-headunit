@@ -16,6 +16,9 @@
         <package android:name="com.autokit" />
         <package android:name="com.suding.speedplay" />
         <package android:name="com.tlink.carplay" />
+        <!-- Head unit mod that draws our maneuvers on the instrument cluster. Android 11 filters
+             package visibility, and a target we cannot see fails the broadcast silently. -->
+        <package android:name="ru.kachalin.voyahtweaks" />
     </queries>
 
     <uses-feature

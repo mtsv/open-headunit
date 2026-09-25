@@ -16,7 +16,7 @@ class AapNavigation(
     private val context: Context,
     private val settings: Settings
 ) {
-    private val helper = AapNavigationHelper(context)
+    private val helper = AapNavigationHelper(context, settings)
     private val snapshot = AapNavigationHelper.NavigationSnapshot()
     private val debounceHandler = Handler(Looper.getMainLooper())
     private var isBroadcastScheduled = false
@@ -42,6 +42,7 @@ class AapNavigation(
                 clearAccumulatedData()
                 scheduleDebouncedBroadcast(NAV_EVENT_TYPE_STOP)
                 helper.cancelNotification()
+                helper.clearEncarsCluster()
                 true
             }
             NavigationStatus.MsgType.INSTRUMENT_CLUSTER_NAVIGATION_STATUS_VALUE -> {

@@ -157,6 +157,7 @@ class SettingsFragment : Fragment() {
     private var pendingAdvancedSettings: Boolean? = null
     private var pendingUseGps: Boolean? = null
     private var pendingShowNavigationNotifications: Boolean? = null
+    private var pendingEncarsNavigationBroadcast: Boolean? = null
     private var pendingSyncMediaSessionAaMetadata: Boolean? = null
     private var pendingAutoResumePlaybackOnReconnect: Boolean? = null
     private var pendingResolution: Int? = null
@@ -337,6 +338,7 @@ class SettingsFragment : Fragment() {
         pendingAdvancedSettings = settings.isAdvancedSettingsActive
         pendingUseGps = settings.useGpsForNavigation
         pendingShowNavigationNotifications = settings.showNavigationNotifications
+        pendingEncarsNavigationBroadcast = settings.encarsNavigationBroadcast
         pendingSyncMediaSessionAaMetadata = settings.syncMediaSessionWithAaMetadata
         pendingAutoResumePlaybackOnReconnect = settings.autoResumePlaybackOnReconnect
         pendingResolution = settings.resolutionId
@@ -478,6 +480,7 @@ class SettingsFragment : Fragment() {
         pendingAdvancedSettings = settings.isAdvancedSettingsActive
         pendingUseGps = settings.useGpsForNavigation
         pendingShowNavigationNotifications = settings.showNavigationNotifications
+        pendingEncarsNavigationBroadcast = settings.encarsNavigationBroadcast
         pendingSyncMediaSessionAaMetadata = settings.syncMediaSessionWithAaMetadata
         pendingAutoResumePlaybackOnReconnect = settings.autoResumePlaybackOnReconnect
         pendingResolution = settings.resolutionId
@@ -694,6 +697,7 @@ class SettingsFragment : Fragment() {
         pendingAdvancedSettings?.let { settings.isAdvancedSettingsActive = it }
         pendingUseGps?.let { settings.useGpsForNavigation = it }
         pendingShowNavigationNotifications?.let { settings.showNavigationNotifications = it }
+        pendingEncarsNavigationBroadcast?.let { settings.encarsNavigationBroadcast = it }
         pendingSyncMediaSessionAaMetadata?.let { settings.syncMediaSessionWithAaMetadata = it }
         pendingAutoResumePlaybackOnReconnect?.let { settings.autoResumePlaybackOnReconnect = it }
         // The way back from a link the app measured as too slow: it lowered the profile after three
@@ -860,6 +864,7 @@ class SettingsFragment : Fragment() {
         val anyChange = pendingAdvancedSettings != settings.isAdvancedSettingsActive ||
                         pendingUseGps != settings.useGpsForNavigation ||
                         pendingShowNavigationNotifications != settings.showNavigationNotifications ||
+                        pendingEncarsNavigationBroadcast != settings.encarsNavigationBroadcast ||
                         pendingSyncMediaSessionAaMetadata != settings.syncMediaSessionWithAaMetadata ||
                         pendingAutoResumePlaybackOnReconnect != settings.autoResumePlaybackOnReconnect ||
                         pendingResolution != settings.resolutionId ||
@@ -1965,6 +1970,18 @@ class SettingsFragment : Fragment() {
             isChecked = pendingShowNavigationNotifications ?: settings.showNavigationNotifications,
             onCheckedChanged = { isChecked ->
                 pendingShowNavigationNotifications = isChecked
+                checkChanges()
+                updateSettingsList()
+            }
+        ))
+
+        items.add(SettingItem.ToggleSettingEntry(
+            stableId = "encarsNavigationBroadcast",
+            nameResId = R.string.encars_navigation_broadcast,
+            descriptionResId = R.string.encars_navigation_broadcast_description,
+            isChecked = pendingEncarsNavigationBroadcast ?: settings.encarsNavigationBroadcast,
+            onCheckedChanged = { isChecked ->
+                pendingEncarsNavigationBroadcast = isChecked
                 checkChanges()
                 updateSettingsList()
             }

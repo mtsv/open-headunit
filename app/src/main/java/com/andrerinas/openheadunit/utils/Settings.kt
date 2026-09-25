@@ -224,6 +224,18 @@ class Settings(private val context: Context) {
             prefs.edit().putBoolean("show-navigation-notifications", value).apply()
         }
 
+    /**
+     * Forward turn-by-turn maneuvers to a head unit mod that can draw them on the car's instrument
+     * cluster. Off by default: it is only useful on a unit running such a mod, and on every other
+     * unit the broadcast reaches nobody. See
+     * [com.andrerinas.openheadunit.aap.navigation.EncarsManeuverPolicy].
+     */
+    var encarsNavigationBroadcast: Boolean
+        get() = prefs.getBoolean("encars-navigation-broadcast", false)
+        set(value) {
+            prefs.edit().putBoolean("encars-navigation-broadcast", value).apply()
+        }
+
     /** Mirror phone now-playing (title, artist, duration, art) in the system media session. */
     var syncMediaSessionWithAaMetadata: Boolean
         get() = prefs.getBoolean(KEY_SYNC_MEDIA_SESSION_AA_METADATA, false)

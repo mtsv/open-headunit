@@ -12,12 +12,17 @@ import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NextTurnDetail.NextEvent as LegacyNextEvent
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NextTurnDetail.Side as LegacySide
+import com.andrerinas.openheadunit.aap.navigation.EncarsNavigationSink
 import com.andrerinas.openheadunit.contract.NavigationUpdateIntent
 import com.andrerinas.openheadunit.utils.AppLog
+import com.andrerinas.openheadunit.utils.Settings
 
 class AapNavigationHelper(
-    private val context: Context
+    private val context: Context,
+    private val settings: Settings? = null
 ) {
+
+    private val encarsSink by lazy { EncarsNavigationSink(context) }
     data class TimedMessage<T>(
         val payload: T,
         val updatedAtElapsedRealtimeMs: Long
@@ -82,6 +87,20 @@ class AapNavigationHelper(
             estimatedArrival = prepared.estimatedArrival
         )
         context.applicationContext.sendBroadcast(intent, NavigationUpdateIntent.BROADCAST_PERMISSION)
+
+        if (settings?.encarsNavigationBroadcast == true) {
+            encarsSink.send(
+                nextEventType = prepared.nextEventType,
+                turnSide = prepared.turnSide ?: NavigationUpdateIntent.TURN_SIDE_UNSPECIFIED,
+                road = prepared.road,
+                distanceMeters = prepared.distanceMeters
+            )
+        }
+    }
+
+    /** Clears a cluster arrow left behind by a route that has ended. See [EncarsNavigationSink.clear]. */
+    fun clearEncarsCluster() {
+        if (settings?.encarsNavigationBroadcast == true) encarsSink.clear()
     }
 
     fun showNotificationForSnapshot(snapshot: NavigationSnapshot, distanceMeters: Int?) {
