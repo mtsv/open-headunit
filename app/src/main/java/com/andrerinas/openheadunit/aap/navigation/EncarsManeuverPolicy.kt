@@ -70,6 +70,38 @@ object EncarsManeuverPolicy {
     const val UNIT_METERS = "m"
 
     /**
+     * How long an unchanged maneuver may go un-repeated before the cluster drops it.
+     *
+     * This protocol has no "still valid" message: the consumer keeps the arrow alive only while
+     * broadcasts keep arriving, and expires it when they stop. Yandex never trips over that because
+     * it broadcasts unconditionally about once a second for the whole route - the captures show it
+     * re-sending the same maneuver with only GPS jitter between samples.
+     *
+     * The first version of this sink dropped identical payloads, on the reasoning that a cluster
+     * gains nothing from being told the same thing twice. That is true of the cluster and false of
+     * the protocol: standing still in traffic freezes the distance, identical payloads stop being
+     * sent, and the arrow disappears from the dashboard after a while - reported from a real car,
+     * and the reason this constant exists.
+     *
+     * One second is chosen because it is the cadence Yandex is observed to use and therefore the
+     * only one proven to hold the arrow. The consumer's actual timeout is unknown, so this is the
+     * safe side of an unmeasured deadline rather than a tuned value: raising it trades dashboard
+     * reliability for a saving of a few broadcasts a minute, which is the wrong way round.
+     */
+    const val REFRESH_INTERVAL_MS = 1_000L
+
+    /**
+     * Whether a maneuver should go out now: because it differs from the last one, or because the
+     * last one is old enough that the cluster may be about to forget it.
+     *
+     * [msSinceLastSend] is measured on a monotonic clock. A negative value - which a caller can
+     * produce before anything has been sent - counts as overdue rather than as recent, so the first
+     * maneuver of a route is never held back.
+     */
+    fun shouldSend(payloadChanged: Boolean, msSinceLastSend: Long): Boolean =
+        payloadChanged || msSinceLastSend >= REFRESH_INTERVAL_MS || msSinceLastSend < 0L
+
+    /**
      * No arrow. Sent for a maneuver that cannot be drawn, and for the run-in to the destination:
      * in the captures the final leg carries an empty `iconId` and an empty `nextRoad` together,
      * counting the distance down to zero.

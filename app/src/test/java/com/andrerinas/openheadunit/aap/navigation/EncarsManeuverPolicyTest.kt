@@ -3,6 +3,7 @@ package com.andrerinas.openheadunit.aap.navigation
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NextTurnDetail.NextEvent
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NextTurnDetail.Side
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -203,6 +204,61 @@ class EncarsManeuverPolicyTest {
     fun `an absent or negative distance becomes the zero the first broadcast carries`() {
         assertEquals(0.0, EncarsManeuverPolicy.distance(null), 0.0)
         assertEquals(0.0, EncarsManeuverPolicy.distance(-1), 0.0)
+    }
+
+    @Test
+    fun `a changed maneuver always goes out`() {
+        assertTrue(EncarsManeuverPolicy.shouldSend(payloadChanged = true, msSinceLastSend = 0L))
+        assertTrue(EncarsManeuverPolicy.shouldSend(payloadChanged = true, msSinceLastSend = 1L))
+    }
+
+    /**
+     * The regression this whole constant exists for: a car standing in traffic freezes the
+     * distance, so every payload is identical to the last, and the first version of the sink sent
+     * nothing at all. The arrow then expired off the dashboard. An unchanged maneuver must still be
+     * repeated once the interval has passed.
+     */
+    @Test
+    fun `an unchanged maneuver is repeated once the refresh interval has passed`() {
+        assertTrue(
+            "a stationary car must still refresh the cluster",
+            EncarsManeuverPolicy.shouldSend(
+                payloadChanged = false,
+                msSinceLastSend = EncarsManeuverPolicy.REFRESH_INTERVAL_MS
+            )
+        )
+        assertTrue(
+            EncarsManeuverPolicy.shouldSend(
+                payloadChanged = false,
+                msSinceLastSend = EncarsManeuverPolicy.REFRESH_INTERVAL_MS * 5
+            )
+        )
+    }
+
+    @Test
+    fun `an unchanged maneuver inside the interval is not re-sent`() {
+        assertFalse(
+            EncarsManeuverPolicy.shouldSend(
+                payloadChanged = false,
+                msSinceLastSend = EncarsManeuverPolicy.REFRESH_INTERVAL_MS - 1
+            )
+        )
+        assertFalse(EncarsManeuverPolicy.shouldSend(payloadChanged = false, msSinceLastSend = 0L))
+    }
+
+    @Test
+    fun `the first maneuver of a route is never held back`() {
+        assertTrue(
+            "nothing sent yet reads as overdue, not as recent",
+            EncarsManeuverPolicy.shouldSend(payloadChanged = false, msSinceLastSend = -1L)
+        )
+    }
+
+    @Test
+    fun `the refresh interval stays at the cadence Yandex is observed to use`() {
+        // Raising this trades dashboard reliability against an unmeasured timeout in the consumer.
+        // If it ever moves, it should move down. See EncarsManeuverPolicy.REFRESH_INTERVAL_MS.
+        assertEquals(1_000L, EncarsManeuverPolicy.REFRESH_INTERVAL_MS)
     }
 
     @Test
