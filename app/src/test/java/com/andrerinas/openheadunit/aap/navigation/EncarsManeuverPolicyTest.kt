@@ -1,5 +1,6 @@
 package com.andrerinas.openheadunit.aap.navigation
 
+import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NavigationClusterStatus.NavigationStatusEnum
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NextTurnDetail.NextEvent
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NextTurnDetail.Side
 import org.junit.Assert.assertEquals
@@ -259,6 +260,82 @@ class EncarsManeuverPolicyTest {
         // Raising this trades dashboard reliability against an unmeasured timeout in the consumer.
         // If it ever moves, it should move down. See EncarsManeuverPolicy.REFRESH_INTERVAL_MS.
         assertEquals(1_000L, EncarsManeuverPolicy.REFRESH_INTERVAL_MS)
+    }
+
+    /**
+     * The second field report: the route ended and the dashboard kept showing "0 m" for the rest of
+     * the drive, because the refresh loop happily repeated an empty maneuver once a second forever.
+     * Going quiet is the only retraction this protocol has.
+     */
+    @Test
+    fun `a spent maneuver is not kept alive, which is what clears the cluster`() {
+        assertFalse(
+            "nothing to draw, nothing to hold",
+            EncarsManeuverPolicy.holdsCluster(EncarsManeuverPolicy.ICON_NONE, "", 0.0)
+        )
+    }
+
+    @Test
+    fun `the destination leg still refreshes although it has no arrow`() {
+        // The captures end with an empty iconId and an empty road, counting the distance down.
+        assertTrue(
+            EncarsManeuverPolicy.holdsCluster(EncarsManeuverPolicy.ICON_NONE, "", 33.7)
+        )
+    }
+
+    @Test
+    fun `any one of an arrow, a road or a distance is enough to keep refreshing`() {
+        assertTrue(EncarsManeuverPolicy.holdsCluster(EncarsManeuverPolicy.ICON_LEFT, "", 0.0))
+        assertTrue(EncarsManeuverPolicy.holdsCluster(EncarsManeuverPolicy.ICON_NONE, "Butlerova St", 0.0))
+        assertTrue(EncarsManeuverPolicy.holdsCluster(EncarsManeuverPolicy.ICON_NONE, "", 0.1))
+    }
+
+    @Test
+    fun `a finished route clears the cluster`() {
+        assertTrue(EncarsManeuverPolicy.clearsCluster(NavigationStatusEnum.INACTIVE))
+        assertTrue(EncarsManeuverPolicy.clearsCluster(NavigationStatusEnum.UNAVAILABLE))
+        assertTrue("no status at all is not a running route", EncarsManeuverPolicy.clearsCluster(null))
+    }
+
+    /**
+     * Rerouting must not blank the dashboard. The maneuver is stale for a moment, but the drive is
+     * still happening, and a cluster that goes dark every time the phone recalculates is worse than
+     * one second of an old arrow.
+     */
+    @Test
+    fun `a running or rerouting route holds the cluster`() {
+        assertFalse(EncarsManeuverPolicy.clearsCluster(NavigationStatusEnum.ACTIVE))
+        assertFalse(EncarsManeuverPolicy.clearsCluster(NavigationStatusEnum.REROUTING))
+    }
+
+    /**
+     * The third field report: turning into an unnamed street left the cluster announcing the road
+     * the driver had left two turns ago. The snapshot's accumulated "current street" is only
+     * overwritten when a road arrives with a name, so an unnamed one leaves the previous value
+     * standing - which is right for the notification that owns it, and wrong for a field naming the
+     * road ahead. Nothing but the maneuver's own sources may reach this function.
+     */
+    @Test
+    fun `an unnamed street reports no road rather than the last one that had a name`() {
+        assertEquals("", EncarsManeuverPolicy.nextRoad("", null))
+        assertEquals("", EncarsManeuverPolicy.nextRoad(null, null))
+        assertEquals("", EncarsManeuverPolicy.nextRoad("   ", ""))
+    }
+
+    @Test
+    fun `the turn's own road wins over the route's first step`() {
+        assertEquals(
+            "Butlerova St",
+            EncarsManeuverPolicy.nextRoad("Butlerova St", "Nepokoryonnykh Ave")
+        )
+    }
+
+    @Test
+    fun `the first step names the road when the turn does not`() {
+        // Both describe the same maneuver, so this is a fallback within one turn - not a fallback
+        // to an older one, which is the bug above.
+        assertEquals("Nepokoryonnykh Ave", EncarsManeuverPolicy.nextRoad("", "Nepokoryonnykh Ave"))
+        assertEquals("Nepokoryonnykh Ave", EncarsManeuverPolicy.nextRoad(null, "Nepokoryonnykh Ave"))
     }
 
     @Test

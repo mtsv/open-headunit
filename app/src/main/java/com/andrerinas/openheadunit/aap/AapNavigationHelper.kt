@@ -12,6 +12,7 @@ import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NextTurnDetail.NextEvent as LegacyNextEvent
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NextTurnDetail.Side as LegacySide
+import com.andrerinas.openheadunit.aap.navigation.EncarsManeuverPolicy
 import com.andrerinas.openheadunit.aap.navigation.EncarsNavigationSink
 import com.andrerinas.openheadunit.contract.NavigationUpdateIntent
 import com.andrerinas.openheadunit.utils.AppLog
@@ -63,6 +64,12 @@ class AapNavigationHelper(
         val turnNumber: Int?,
         val turnAngle: Int?,
         val nextManeuver: Int?,
+        /**
+         * The road for the instrument cluster, taken from the maneuver being announced only.
+         * Deliberately not [road], which falls back to the accumulated current street and so goes
+         * stale on a turn into an unnamed one. See [EncarsManeuverPolicy.nextRoad].
+         */
+        val clusterRoad: String,
         val totalDistanceMeters: Int?,
         val totalTimeSeconds: Long?,
         val estimatedArrival: String?
@@ -92,7 +99,7 @@ class AapNavigationHelper(
             encarsSink.send(
                 nextEventType = prepared.nextEventType,
                 turnSide = prepared.turnSide ?: NavigationUpdateIntent.TURN_SIDE_UNSPECIFIED,
-                road = prepared.road,
+                road = prepared.clusterRoad,
                 distanceMeters = prepared.distanceMeters
             )
         }
@@ -237,6 +244,7 @@ val actionText = state?.stepsList?.firstOrNull()?.maneuver?.type?.let { maneuver
             turnNumber = turnNumber,
             turnAngle = turnAngle,
             nextManeuver = nextManeuver,
+            clusterRoad = EncarsManeuverPolicy.nextRoad(detail?.road, roadFromState),
             totalDistanceMeters = totalDistanceMeters,
             totalTimeSeconds = totalTimeSeconds,
             estimatedArrival = estimatedArrival

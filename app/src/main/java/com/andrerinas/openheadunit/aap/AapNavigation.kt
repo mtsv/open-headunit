@@ -3,6 +3,7 @@ package com.andrerinas.openheadunit.aap
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import com.andrerinas.openheadunit.aap.navigation.EncarsManeuverPolicy
 import com.andrerinas.openheadunit.aap.protocol.Channel
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus
 import com.andrerinas.openheadunit.utils.AppLog
@@ -169,6 +170,11 @@ class AapNavigation(
         if (changed) {
             clearAccumulatedDataPreservingStatus(newStatus)
             helper.cancelNotification()
+            // The only end-of-route signal this protocol reliably gives: INSTRUMENT_CLUSTER_STOP
+            // never arrives on some head units. See EncarsManeuverPolicy.clearsCluster.
+            if (EncarsManeuverPolicy.clearsCluster(status.status)) {
+                helper.clearEncarsCluster()
+            }
         } else {
             snapshot.clusterStatus = newStatus
         }

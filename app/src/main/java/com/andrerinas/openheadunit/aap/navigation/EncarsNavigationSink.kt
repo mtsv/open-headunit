@@ -32,7 +32,10 @@ class EncarsNavigationSink(
     private val targetPackage: String = EncarsManeuverPolicy.DEFAULT_TARGET_PACKAGE
 ) {
 
-    private data class Payload(val iconId: String, val nextRoad: String, val distance: Double)
+    private data class Payload(val iconId: String, val nextRoad: String, val distance: Double) {
+        fun holdsCluster(): Boolean =
+            EncarsManeuverPolicy.holdsCluster(iconId, nextRoad, distance)
+    }
 
     /** The last payload sent, and what the heartbeat re-sends. Null while no route is running. */
     private var last: Payload? = null
@@ -42,9 +45,19 @@ class EncarsNavigationSink(
 
     private val handler = Handler(Looper.getMainLooper())
 
+    /**
+     * Re-posts itself only while there is something worth holding. That is what stops a finished
+     * route pinning "0 m" to the cluster, and it is also the only thing that ever stops this
+     * runnable: nothing tears down an [EncarsNavigationSink] - its owner,
+     * [com.andrerinas.openheadunit.aap.AapMessageHandlerType], has no teardown hook and is simply
+     * dropped when the session ends - so a heartbeat that always re-posted would outlive the
+     * transport that created it and broadcast forever.
+     */
     private val heartbeat = object : Runnable {
         override fun run() {
-            last?.let { broadcast(it, isHeartbeat = true) }
+            val payload = last ?: return
+            if (!payload.holdsCluster()) return
+            broadcast(payload, isHeartbeat = true)
             handler.postDelayed(this, EncarsManeuverPolicy.REFRESH_INTERVAL_MS)
         }
     }
@@ -72,8 +85,9 @@ class EncarsNavigationSink(
 
         last = payload
         // Whatever the phone says re-arms the timer, so a heartbeat only ever fires in the gap
-        // Android Auto leaves rather than alongside it.
-        armHeartbeat()
+        // Android Auto leaves rather than alongside it. A payload with nothing left to show arms
+        // nothing: letting the refresh lapse is how the cluster is cleared.
+        armHeartbeat(payload)
 
         if (!EncarsManeuverPolicy.shouldSend(changed, sinceLast)) return
         broadcast(payload, isHeartbeat = false)
@@ -100,8 +114,9 @@ class EncarsNavigationSink(
         )
     }
 
-    private fun armHeartbeat() {
+    private fun armHeartbeat(payload: Payload) {
         handler.removeCallbacks(heartbeat)
+        if (!payload.holdsCluster()) return
         handler.postDelayed(heartbeat, EncarsManeuverPolicy.REFRESH_INTERVAL_MS)
     }
 

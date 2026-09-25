@@ -1,5 +1,6 @@
 package com.andrerinas.openheadunit.aap.navigation
 
+import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NavigationClusterStatus.NavigationStatusEnum
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NextTurnDetail.NextEvent
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NextTurnDetail.Side
 
@@ -100,6 +101,43 @@ object EncarsManeuverPolicy {
      */
     fun shouldSend(payloadChanged: Boolean, msSinceLastSend: Long): Boolean =
         payloadChanged || msSinceLastSend >= REFRESH_INTERVAL_MS || msSinceLastSend < 0L
+
+    /**
+     * Whether a payload is worth holding on the dashboard - that is, whether the refresh in
+     * [REFRESH_INTERVAL_MS] should keep going.
+     *
+     * A maneuver with no arrow, no road and no distance left says nothing, and repeating it once a
+     * second pins "0 m" to the cluster for the rest of the drive. That is what a finished route
+     * decays into, and it was reported from a real car: the route ended and the dashboard kept
+     * showing zero.
+     *
+     * Letting the refresh lapse is what clears it. The consumer expires a maneuver it stops hearing
+     * about - the same timeout that made [REFRESH_INTERVAL_MS] necessary - so going quiet is the
+     * protocol's way of saying "nothing now", and there is no retraction message to send instead.
+     *
+     * An empty arrow on its own is not nothing: the captured destination leg carries an empty
+     * `iconId` with a real distance counting down, and that has to keep refreshing like any other.
+     */
+    fun holdsCluster(iconId: String, nextRoad: String, distance: Double): Boolean =
+        iconId.isNotEmpty() || nextRoad.isNotEmpty() || distance > 0.0
+
+    /**
+     * Whether a cluster status means the route is over and the arrow should go.
+     *
+     * [NavigationStatusEnum.REROUTING] deliberately holds: the maneuver on screen is stale for a
+     * moment, but the drive is still happening and blanking the dashboard every time the phone
+     * recalculates would be worse than a second of an old arrow.
+     *
+     * This is the *only* end-of-route signal some setups produce. `INSTRUMENT_CLUSTER_STOP` looks
+     * like the obvious hook and is not: on the head unit this was developed against it never
+     * arrives at all - neither it nor `INSTRUMENT_CLUSTER_START` appears once in a captured
+     * session - while the status message goes ACTIVE and INACTIVE exactly as the route starts and
+     * ends. Anything that must happen when a route finishes belongs here, not there.
+     */
+    fun clearsCluster(status: NavigationStatusEnum?): Boolean = when (status) {
+        NavigationStatusEnum.ACTIVE, NavigationStatusEnum.REROUTING -> false
+        else -> true
+    }
 
     /**
      * No arrow. Sent for a maneuver that cannot be drawn, and for the run-in to the destination:
@@ -206,15 +244,28 @@ object EncarsManeuverPolicy {
         distanceMeters?.takeIf { it >= 0 }?.toDouble() ?: 0.0
 
     /**
-     * The road name, with Open Headunit's own placeholder stripped.
+     * The road the next maneuver leads onto: [turnRoad] from the turn itself, or [firstStepRoad]
+     * from the route's first step, which describes the same maneuver from the other message family.
      *
-     * `AapNavigationHelper` substitutes `—` for an unknown road so its notification never shows an
-     * empty line. This protocol wants a genuinely empty string there - that is what the captures
-     * carry on the destination leg - so the placeholder is undone rather than forwarded as a road
-     * called "—".
+     * Both sources belong to the maneuver being announced, and that is the whole point. The
+     * snapshot also carries an accumulated "current street", and reading it here is the bug this
+     * signature exists to prevent: it is only overwritten when a road arrives with a name, so a
+     * turn onto an unnamed street leaves the *previous* street sitting in it, and the cluster keeps
+     * announcing a road the driver left two turns ago. Reported from a real car.
+     *
+     * That stickiness is right where it comes from - a notification reading "Street: —" is worse
+     * than one a beat out of date - and wrong here, because this field names the road ahead. An
+     * unnamed street has no name, and the captures show an empty `nextRoad` is ordinary: the whole
+     * destination leg carries one.
+     *
+     * Open Headunit's own `—` placeholder is undone for the same reason, rather than forwarded as
+     * a road called "—".
      */
-    fun nextRoad(road: String?): String =
-        road?.trim()?.takeIf { it.isNotEmpty() && it != PLACEHOLDER_ROAD } ?: ""
+    fun nextRoad(turnRoad: String?, firstStepRoad: String? = null): String =
+        named(turnRoad) ?: named(firstStepRoad) ?: ""
+
+    private fun named(road: String?): String? =
+        road?.trim()?.takeIf { it.isNotEmpty() && it != PLACEHOLDER_ROAD }
 
     private const val PLACEHOLDER_ROAD = "—"
 
