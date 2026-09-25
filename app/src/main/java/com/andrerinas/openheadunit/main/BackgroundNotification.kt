@@ -52,7 +52,7 @@ class BackgroundNotification(private val context: Context) {
                 .setContentTitle(metadata.song)
                 .setAutoCancel(false)
                 .setOngoing(true)
-                .setContentText(metadata.artist)
+                .setContentText(MediaNotificationTextPolicy.artistLine(metadata.artist, metadata.album))
                 .setSubText(progressText)
                 .setSmallIcon(R.drawable.ic_stat_aa)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
