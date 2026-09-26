@@ -114,6 +114,7 @@ import com.andrerinas.openheadunit.connection.wifi.server.WirelessServer
 import com.andrerinas.openheadunit.main.BackgroundNotification
 import com.andrerinas.openheadunit.main.SettingsActivity
 import com.andrerinas.openheadunit.main.FloatingButtonManager
+import com.andrerinas.openheadunit.main.MediaNotificationTextPolicy
 import com.andrerinas.openheadunit.utils.Settings
 import com.andrerinas.openheadunit.utils.VpnControl
 import com.andrerinas.openheadunit.utils.protoUint32ToLong
@@ -524,8 +525,9 @@ class AapService : Service() {
             meta.hasSong() && meta.song.isNotBlank() -> meta.song
             else -> getString(R.string.video)
         }
+        val artistString = MediaNotificationTextPolicy.artistLine(meta.artist, meta.album)
         val artist = when {
-            meta.hasArtist() && meta.artist.isNotBlank() -> meta.artist
+            artistString.isNotBlank() -> artistString
             else -> getString(R.string.media_session_aa_status_placeholder)
         }
         val b = MediaMetadataCompat.Builder()
