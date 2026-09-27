@@ -103,6 +103,31 @@ object EncarsManeuverPolicy {
         payloadChanged || msSinceLastSend >= REFRESH_INTERVAL_MS || msSinceLastSend < 0L
 
     /**
+     * How long the refresh may go on hearing nothing from the phone before it gives up.
+     *
+     * The refresh in [REFRESH_INTERVAL_MS] exists to cover gaps Android Auto leaves, and a gap that
+     * never ends is a session that died rather than a car that stopped. Without a bound the loop
+     * outlives the transport that started it: end a session mid-route and the last maneuver stays
+     * on the dashboard for as long as the app runs, and starting a second session then puts two
+     * broadcasters on one cluster, interleaving an old route's turns with a new one's. Both were
+     * reported from a real car.
+     *
+     * Ten seconds because an active route speaks about once a second - every captured drive does,
+     * stationary or not - so ten silent ones are not a quiet patch. This is the backstop, not the
+     * mechanism: an ordinary session end clears the cluster at once through
+     * `AapService.onDisconnected`. What this catches is every way a session can stop talking
+     * without saying so.
+     */
+    const val PHONE_SILENCE_TIMEOUT_MS = 10_000L
+
+    /**
+     * Whether the refresh should continue, given how long ago the phone last reported a maneuver.
+     * [msSincePhoneUpdate] is measured on a monotonic clock.
+     */
+    fun keepsRefreshing(msSincePhoneUpdate: Long): Boolean =
+        msSincePhoneUpdate < PHONE_SILENCE_TIMEOUT_MS
+
+    /**
      * Whether a payload is worth holding on the dashboard - that is, whether the refresh in
      * [REFRESH_INTERVAL_MS] should keep going.
      *

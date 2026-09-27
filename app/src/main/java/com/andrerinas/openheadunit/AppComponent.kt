@@ -3,6 +3,7 @@ package com.andrerinas.openheadunit
 import android.app.NotificationManager
 import android.content.Context
 import android.net.wifi.WifiManager
+import com.andrerinas.openheadunit.aap.navigation.EncarsNavigationSink
 import com.andrerinas.openheadunit.connection.CommManager
 import com.andrerinas.openheadunit.decoder.audio.AudioDecoder
 import com.andrerinas.openheadunit.decoder.video.DeviceMemoryProfile
@@ -31,4 +32,13 @@ class AppComponent(private val app: App) {
     val suExecutor = SUExecutor()
 
     val carKeysManager = CarKeysManager()
+
+    /**
+     * Process-scoped on purpose. The sink refreshes the cluster on a timer of its own, so one per
+     * transport meant a session that ended mid-route left its timer running and a second session
+     * added another beside it - two broadcasters putting an old route's turns and a new route's on
+     * one dashboard, alternating. One instance cannot do that: a new session simply hands the same
+     * sink new maneuvers.
+     */
+    val encarsNavigationSink = EncarsNavigationSink(app)
 }

@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.andrerinas.openheadunit.App
 import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus
 import com.andrerinas.openheadunit.aap.protocol.proto.NavigationStatus.NextTurnDetail.NextEvent as LegacyNextEvent
@@ -23,7 +24,7 @@ class AapNavigationHelper(
     private val settings: Settings? = null
 ) {
 
-    private val encarsSink by lazy { EncarsNavigationSink(context) }
+    private val encarsSink get() = App.provide(context).encarsNavigationSink
     data class TimedMessage<T>(
         val payload: T,
         val updatedAtElapsedRealtimeMs: Long

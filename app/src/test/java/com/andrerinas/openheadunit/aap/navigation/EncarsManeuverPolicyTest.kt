@@ -255,6 +255,45 @@ class EncarsManeuverPolicyTest {
         )
     }
 
+    /**
+     * The fourth field report, in two halves. Ending a session mid-route left its last turn on the
+     * dashboard for the life of the process, because the refresh timer outlived the transport that
+     * started it; a second session then broadcast beside the first, interleaving an old route's
+     * turns with a new one's. One instance of the sink stops the interleaving structurally, and
+     * this bound is what stops a refresh nobody ended.
+     */
+    @Test
+    fun `the refresh gives up once the phone has gone quiet for too long`() {
+        assertFalse(
+            "a session that stopped talking is over",
+            EncarsManeuverPolicy.keepsRefreshing(EncarsManeuverPolicy.PHONE_SILENCE_TIMEOUT_MS)
+        )
+        assertFalse(
+            EncarsManeuverPolicy.keepsRefreshing(EncarsManeuverPolicy.PHONE_SILENCE_TIMEOUT_MS * 10)
+        )
+    }
+
+    @Test
+    fun `an ordinary gap between reports keeps the refresh going`() {
+        assertTrue(EncarsManeuverPolicy.keepsRefreshing(0L))
+        assertTrue(EncarsManeuverPolicy.keepsRefreshing(EncarsManeuverPolicy.REFRESH_INTERVAL_MS))
+        assertTrue(
+            EncarsManeuverPolicy.keepsRefreshing(EncarsManeuverPolicy.PHONE_SILENCE_TIMEOUT_MS - 1)
+        )
+    }
+
+    /**
+     * The bound has to outlast several ordinary reports, or a route that merely skips a beat would
+     * drop off the dashboard. An active route speaks about once a second in every captured drive.
+     */
+    @Test
+    fun `the silence bound is several refreshes long, not one`() {
+        assertTrue(
+            EncarsManeuverPolicy.PHONE_SILENCE_TIMEOUT_MS >=
+                EncarsManeuverPolicy.REFRESH_INTERVAL_MS * 5
+        )
+    }
+
     @Test
     fun `the refresh interval stays at the cadence Yandex is observed to use`() {
         // Raising this trades dashboard reliability against an unmeasured timeout in the consumer.

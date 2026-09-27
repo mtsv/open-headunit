@@ -43,6 +43,13 @@ class EncarsNavigationSink(
     /** Monotonic, so it survives a wall-clock correction mid-drive. */
     private var lastSentAtMs = -1L
 
+    /**
+     * When the phone last reported a maneuver - as opposed to when this class last broadcast one.
+     * The two diverge exactly when the session has gone away and only the refresh is still running,
+     * which is what [EncarsManeuverPolicy.PHONE_SILENCE_TIMEOUT_MS] bounds.
+     */
+    private var lastPhoneUpdateAtMs = -1L
+
     private val handler = Handler(Looper.getMainLooper())
 
     /**
@@ -57,6 +64,15 @@ class EncarsNavigationSink(
         override fun run() {
             val payload = last ?: return
             if (!payload.holdsCluster()) return
+            val silenceMs = SystemClock.elapsedRealtime() - lastPhoneUpdateAtMs
+            if (lastPhoneUpdateAtMs < 0L || !EncarsManeuverPolicy.keepsRefreshing(silenceMs)) {
+                AppLog.i(
+                    "Nav: encars refresh stopped - the phone has said nothing for ${silenceMs}ms, " +
+                        "so the session is gone and the cluster is left to expire"
+                )
+                last = null
+                return
+            }
             broadcast(payload, isHeartbeat = true)
             handler.postDelayed(this, EncarsManeuverPolicy.REFRESH_INTERVAL_MS)
         }
@@ -74,6 +90,11 @@ class EncarsNavigationSink(
      * [EncarsManeuverPolicy.shouldSend].
      */
     fun send(nextEventType: Int, turnSide: Int, nextRoad: String, distanceMeters: Int?) {
+        // Stamped for every report, including one the refresh interval then suppresses: a repeat
+        // the phone bothered to send is still proof the session is alive, which is all this clock
+        // is asked to answer.
+        lastPhoneUpdateAtMs = SystemClock.elapsedRealtime()
+
         val payload = Payload(
             iconId = EncarsManeuverPolicy.iconIdFromWire(nextEventType, turnSide),
             // Already resolved by EncarsManeuverPolicy.nextRoad, which needs the maneuver and both
@@ -109,6 +130,7 @@ class EncarsNavigationSink(
         handler.removeCallbacks(heartbeat)
         last = null
         lastSentAtMs = -1L
+        lastPhoneUpdateAtMs = -1L
         broadcast(
             Payload(EncarsManeuverPolicy.ICON_NONE, "", 0.0),
             isHeartbeat = false,

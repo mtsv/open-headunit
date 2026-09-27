@@ -1644,6 +1644,15 @@ class AapService : Service() {
         releasePermanentAudioFocus()
         carKeysManager.onSessionEnded()
 
+        // The cluster refresh is a timer, not a consequence of the session object existing, so it
+        // has to be stopped by name. A session ended mid-route used to leave it running for the
+        // life of the process, pinning that route's last turn to the dashboard - and a second
+        // session then broadcast alongside it. The sink is process-scoped now, so this is the one
+        // place that ends it.
+        if (App.provide(this).settings.encarsNavigationBroadcast) {
+            App.provide(this).encarsNavigationSink.clear()
+        }
+
         if (!isDestroying) updateNotification()
         autoResumePlaybackJob?.cancel()
         autoResumePlaybackJob = null
