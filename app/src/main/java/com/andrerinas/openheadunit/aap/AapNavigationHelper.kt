@@ -99,7 +99,7 @@ class AapNavigationHelper(
             encarsSink.send(
                 nextEventType = prepared.nextEventType,
                 turnSide = prepared.turnSide ?: NavigationUpdateIntent.TURN_SIDE_UNSPECIFIED,
-                road = prepared.clusterRoad,
+                nextRoad = prepared.clusterRoad,
                 distanceMeters = prepared.distanceMeters
             )
         }
@@ -244,7 +244,11 @@ val actionText = state?.stepsList?.firstOrNull()?.maneuver?.type?.let { maneuver
             turnNumber = turnNumber,
             turnAngle = turnAngle,
             nextManeuver = nextManeuver,
-            clusterRoad = EncarsManeuverPolicy.nextRoad(detail?.road, roadFromState),
+            clusterRoad = EncarsManeuverPolicy.nextRoad(
+                detail?.takeIf { it.hasNextTurn() }?.nextTurn,
+                detail?.road,
+                roadFromState
+            ),
             totalDistanceMeters = totalDistanceMeters,
             totalTimeSeconds = totalTimeSeconds,
             estimatedArrival = estimatedArrival

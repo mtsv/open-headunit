@@ -317,16 +317,16 @@ class EncarsManeuverPolicyTest {
      */
     @Test
     fun `an unnamed street reports no road rather than the last one that had a name`() {
-        assertEquals("", EncarsManeuverPolicy.nextRoad("", null))
-        assertEquals("", EncarsManeuverPolicy.nextRoad(null, null))
-        assertEquals("", EncarsManeuverPolicy.nextRoad("   ", ""))
+        assertEquals("", EncarsManeuverPolicy.nextRoad(NextEvent.TURN, "", null))
+        assertEquals("", EncarsManeuverPolicy.nextRoad(NextEvent.TURN, null, null))
+        assertEquals("", EncarsManeuverPolicy.nextRoad(NextEvent.TURN, "   ", ""))
     }
 
     @Test
     fun `the turn's own road wins over the route's first step`() {
         assertEquals(
             "Butlerova St",
-            EncarsManeuverPolicy.nextRoad("Butlerova St", "Nepokoryonnykh Ave")
+            EncarsManeuverPolicy.nextRoad(NextEvent.TURN, "Butlerova St", "Nepokoryonnykh Ave")
         )
     }
 
@@ -334,17 +334,63 @@ class EncarsManeuverPolicyTest {
     fun `the first step names the road when the turn does not`() {
         // Both describe the same maneuver, so this is a fallback within one turn - not a fallback
         // to an older one, which is the bug above.
-        assertEquals("Nepokoryonnykh Ave", EncarsManeuverPolicy.nextRoad("", "Nepokoryonnykh Ave"))
-        assertEquals("Nepokoryonnykh Ave", EncarsManeuverPolicy.nextRoad(null, "Nepokoryonnykh Ave"))
+        assertEquals(
+            "Nepokoryonnykh Ave",
+            EncarsManeuverPolicy.nextRoad(NextEvent.TURN, "", "Nepokoryonnykh Ave")
+        )
+        assertEquals(
+            "Nepokoryonnykh Ave",
+            EncarsManeuverPolicy.nextRoad(NextEvent.TURN, null, "Nepokoryonnykh Ave")
+        )
+    }
+
+    /**
+     * Arriving is not turning onto anything, so whatever `road` still holds is left over from the
+     * last maneuver that had one. A captured drive ends `Svetlanovskiy Ave/TURN`,
+     * `Svetlanovskiy Ave/SHARP_TURN`, `Svetlanovskiy Ave/DESTINATION` - the maneuver advances while
+     * the name stands still - and Yandex's own broadcasts carry an empty road on every destination
+     * leg. This is the one case where a repeated name is provably meaningless.
+     */
+    @Test
+    fun `arriving announces no road, however stale a name the phone still sends`() {
+        assertEquals(
+            "",
+            EncarsManeuverPolicy.nextRoad(NextEvent.DESTINATION, "Svetlanovskiy Ave", null)
+        )
+        assertFalse(EncarsManeuverPolicy.announcesRoad(NextEvent.DESTINATION))
+    }
+
+    /**
+     * Deliberately narrow. These draw no arrow either, but the road ahead is real and still worth
+     * naming, so suppressing it would lose information rather than stale information.
+     */
+    @Test
+    fun `every maneuver but arrival still names its road`() {
+        val named = listOf(
+            NextEvent.TURN,
+            NextEvent.SHARP_TURN,
+            NextEvent.SLIGHT_TURN,
+            NextEvent.U_TURN,
+            NextEvent.NAME_CHANGE,
+            NextEvent.STRAIGHT,
+            NextEvent.DEPART,
+            NextEvent.ROUNDABOUT_ENTER,
+            NextEvent.UNKNOWN
+        )
+        for (event in named) {
+            assertTrue("$event", EncarsManeuverPolicy.announcesRoad(event))
+            assertEquals("$event", "Butlerova St", EncarsManeuverPolicy.nextRoad(event, "Butlerova St"))
+        }
+        assertTrue("a missing maneuver is not an arrival", EncarsManeuverPolicy.announcesRoad(null))
     }
 
     @Test
     fun `the road placeholder is undone rather than sent as a road name`() {
-        assertEquals("", EncarsManeuverPolicy.nextRoad("—"))
-        assertEquals("", EncarsManeuverPolicy.nextRoad(""))
-        assertEquals("", EncarsManeuverPolicy.nextRoad("   "))
-        assertEquals("", EncarsManeuverPolicy.nextRoad(null))
-        assertEquals("Butlerova St", EncarsManeuverPolicy.nextRoad("Butlerova St"))
-        assertEquals("Butlerova St", EncarsManeuverPolicy.nextRoad("  Butlerova St  "))
+        assertEquals("", EncarsManeuverPolicy.nextRoad(NextEvent.TURN, "—"))
+        assertEquals("", EncarsManeuverPolicy.nextRoad(NextEvent.TURN, ""))
+        assertEquals("", EncarsManeuverPolicy.nextRoad(NextEvent.TURN, "   "))
+        assertEquals("", EncarsManeuverPolicy.nextRoad(NextEvent.TURN, null))
+        assertEquals("Butlerova St", EncarsManeuverPolicy.nextRoad(NextEvent.TURN, "Butlerova St"))
+        assertEquals("Butlerova St", EncarsManeuverPolicy.nextRoad(NextEvent.TURN, "  Butlerova St  "))
     }
 }

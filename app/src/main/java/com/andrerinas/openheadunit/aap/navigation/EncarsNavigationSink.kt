@@ -73,10 +73,12 @@ class EncarsNavigationSink(
      * A payload identical to the last one is still sent once the refresh interval has passed; see
      * [EncarsManeuverPolicy.shouldSend].
      */
-    fun send(nextEventType: Int, turnSide: Int, road: String?, distanceMeters: Int?) {
+    fun send(nextEventType: Int, turnSide: Int, nextRoad: String, distanceMeters: Int?) {
         val payload = Payload(
             iconId = EncarsManeuverPolicy.iconIdFromWire(nextEventType, turnSide),
-            nextRoad = EncarsManeuverPolicy.nextRoad(road),
+            // Already resolved by EncarsManeuverPolicy.nextRoad, which needs the maneuver and both
+            // road sources to decide - more than this signature carries.
+            nextRoad = nextRoad,
             distance = EncarsManeuverPolicy.distance(distanceMeters)
         )
 

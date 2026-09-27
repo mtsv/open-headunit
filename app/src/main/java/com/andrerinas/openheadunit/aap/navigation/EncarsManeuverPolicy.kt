@@ -258,11 +258,38 @@ object EncarsManeuverPolicy {
      * unnamed street has no name, and the captures show an empty `nextRoad` is ordinary: the whole
      * destination leg carries one.
      *
+     * What this cannot repair is Android Auto repeating a name of its own accord. `road` is
+     * `required` in the proto, so the phone must put something there even for a turn onto a road
+     * with no name, and what it puts is the previous maneuver's road. A captured drive ends
+     * `Kurchatova St/TURN`, `Svetlanovskiy Ave/TURN`, `Svetlanovskiy Ave/SHARP_TURN`,
+     * `Svetlanovskiy Ave/DESTINATION`: the maneuver advances while the name stands still, and not
+     * one of 4072 navigation messages carried an empty road. A repeat cannot be told from a
+     * genuine one either - the same drive legitimately turns onto Nepokoryonnykh Ave and then
+     * U-turns back onto it - so treating an unchanged name as unknown would blank roads that are
+     * correct. The name simply does not reach us, and [announcesRoad] covers the one case where we
+     * can be sure it is meaningless.
+     *
      * Open Headunit's own `—` placeholder is undone for the same reason, rather than forwarded as
      * a road called "—".
      */
-    fun nextRoad(turnRoad: String?, firstStepRoad: String? = null): String =
-        named(turnRoad) ?: named(firstStepRoad) ?: ""
+    fun nextRoad(
+        nextEvent: NextEvent?,
+        turnRoad: String?,
+        firstStepRoad: String? = null
+    ): String =
+        if (!announcesRoad(nextEvent)) "" else named(turnRoad) ?: named(firstStepRoad) ?: ""
+
+    /**
+     * Whether this maneuver has a road ahead to name at all.
+     *
+     * Only [NextEvent.DESTINATION] does not: arriving is not turning onto anything, so whatever
+     * `road` holds there is left over from the last maneuver that did have one. Yandex agrees -
+     * every captured destination leg carries an empty `nextRoad` alongside its empty `iconId`.
+     *
+     * This is a narrow rule on purpose. [NextEvent.NAME_CHANGE] and [NextEvent.STRAIGHT] draw no
+     * arrow but the road ahead is still real and still worth naming, so they are not included.
+     */
+    fun announcesRoad(nextEvent: NextEvent?): Boolean = nextEvent != NextEvent.DESTINATION
 
     private fun named(road: String?): String? =
         road?.trim()?.takeIf { it.isNotEmpty() && it != PLACEHOLDER_ROAD }
