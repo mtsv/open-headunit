@@ -521,6 +521,11 @@ class AapService : Service() {
 
     private fun applyAaMediaMetadataToSession(meta: MediaPlayback.MediaMetaData, albumArt: Bitmap?) {
         val session = mediaSession ?: return
+        val durationSec = if (meta.hasDurationSeconds()) {
+            meta.durationSeconds.protoUint32ToLong()
+        } else {
+            0L
+        }
         val title = when {
             meta.hasSong() && meta.song.isNotBlank() -> meta.song
             else -> getString(R.string.video)
@@ -531,16 +536,16 @@ class AapService : Service() {
             else -> getString(R.string.media_session_aa_status_placeholder)
         }
         val b = MediaMetadataCompat.Builder()
-            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
+            .putString(
+                MediaMetadataCompat.METADATA_KEY_TITLE,
+                MediaNotificationTextPolicy.titleWithDuration(title, durationSec)
+            )
             .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
         if (meta.hasAlbum() && meta.album.isNotBlank()) {
             b.putString(MediaMetadataCompat.METADATA_KEY_ALBUM, meta.album)
         }
-        if (meta.hasDurationSeconds()) {
-            val durationSec = meta.durationSeconds.protoUint32ToLong()
-            if (durationSec > 0L) {
-                b.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationSec * 1000L)
-            }
+        if (durationSec > 0L) {
+            b.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationSec * 1000L)
         }
         if (albumArt != null) {
             b.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, albumArt)

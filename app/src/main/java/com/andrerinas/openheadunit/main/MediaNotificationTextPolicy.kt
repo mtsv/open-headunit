@@ -1,5 +1,7 @@
 package com.andrerinas.openheadunit.main
 
+import java.util.Locale
+
 /**
  * The line under the track title in the media notification.
  *
@@ -32,6 +34,44 @@ object MediaNotificationTextPolicy {
                 trimmedArtist + SEPARATOR + trimmedAlbum
             trimmedArtist.isNotEmpty() -> trimmedArtist
             else -> trimmedAlbum
+        }
+    }
+
+    /**
+     * `title [m:ss]`, or `title [h:mm:ss]` once the track runs an hour or longer.
+     *
+     * Android Auto sends the duration as a separate field, and the media session already carries it
+     * as `METADATA_KEY_DURATION` for anything that lays out its own transport bar. This is for the
+     * readers that show a title and nothing else - a plain notification row, a head unit's
+     * single-line now-playing - where the length is otherwise invisible.
+     *
+     * A non-positive duration appends nothing: proto2 hands back 0 for an unset optional field, so
+     * "no duration" and "zero seconds" arrive identically and neither is worth a `[00:00]`.
+     */
+    fun titleWithDuration(title: String, durationSeconds: Long): String {
+        if (durationSeconds <= 0L) return title
+        return "$title [${formatDuration(durationSeconds)}]"
+    }
+
+    /**
+     * `m:ss` under an hour, `h:mm:ss` at or above it.
+     *
+     * The leading field is never padded and every field after it always is, which is how a track
+     * length is written everywhere else a listener sees one - `3:45`, not `03:45`. Only the leading
+     * field changes width, so the colons stay where the eye expects them.
+     *
+     * [Locale.US] rather than the default: the digits here are a timestamp, and a device set to a
+     * locale with its own numerals would otherwise render them in a script the rest of the title is
+     * not written in.
+     */
+    fun formatDuration(durationSeconds: Long): String {
+        val hours = durationSeconds / 3600
+        val minutes = (durationSeconds % 3600) / 60
+        val seconds = durationSeconds % 60
+        return if (hours > 0L) {
+            String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format(Locale.US, "%d:%02d", minutes, seconds)
         }
     }
 }
