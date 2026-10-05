@@ -22,6 +22,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import com.andrerinas.openheadunit.utils.OemAppManager
 import com.andrerinas.openheadunit.utils.CarLauncherManager
+import com.andrerinas.openheadunit.utils.UpdateChecker
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -75,6 +76,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.pm.PackageManager
 import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.NativeAaHandshakeManager
+import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.ExternalBtTransportPolicy
 import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.NativeCredentialsPreflight
 import com.andrerinas.openheadunit.utils.BluetoothHelper
 import androidx.lifecycle.lifecycleScope
@@ -148,7 +150,7 @@ class SettingsFragment : Fragment() {
         // Input
         "keymap",
         // Audio
-        "enableAudioSink", "audioStreamSettings", "micSettings", "audioVolumeOffsets",
+        "enableAudioSink", "audioStreamSettings", "useAAudioOutput", "micSettings", "audioVolumeOffsets",
         // Info
         "version", "about", "support"
     )
@@ -176,6 +178,7 @@ class SettingsFragment : Fragment() {
     private var pendingStaticAudioFocus: Boolean? = null
     private var pendingPlaybackFocusMode: PlaybackFocusPolicy.Mode? = null
     private var pendingUseAacAudio: Boolean? = null
+    private var pendingUseAAudioOutput: Boolean? = null
     private var pendingAttachHwDspEqualizer: Boolean? = null
     private var pendingMicInputSource: Int? = null
     private var pendingEnableRotary: Boolean? = null
@@ -202,7 +205,7 @@ class SettingsFragment : Fragment() {
     private var pendingBluetoothManagerServiceName: String? = null
     private var pendingNativeAaIgnoreExternalBt: Boolean? = null
     private var pendingExternalBtZbtTransport: Boolean? = null
-    private var pendingNativeAaCompleteHfpSlc: Boolean? = null
+    private var pendingExternalBtBlinkTransport: Boolean? = null
     private var pendingAnnounceConnectionConfiguration: Boolean? = null
 
     // The probe's verdict is not a pending setting: it changes nothing and there is nothing to
@@ -357,6 +360,7 @@ class SettingsFragment : Fragment() {
         pendingStaticAudioFocus = settings.staticAudioFocus
         pendingPlaybackFocusMode = settings.playbackFocusMode
         pendingUseAacAudio = settings.useAacAudio
+        pendingUseAAudioOutput = settings.useAAudioOutput
         pendingAttachHwDspEqualizer = settings.attachHwDspEqualizer
         pendingMicInputSource = settings.micInputSource
         pendingEnableRotary = settings.enableRotary
@@ -398,7 +402,7 @@ class SettingsFragment : Fragment() {
         pendingBluetoothManagerServiceName = settings.bluetoothManagerServiceName
         pendingNativeAaIgnoreExternalBt = settings.nativeAaIgnoreExternalBt
         pendingExternalBtZbtTransport = settings.externalBtZbtTransport
-        pendingNativeAaCompleteHfpSlc = settings.nativeAaCompleteHfpSlc
+        pendingExternalBtBlinkTransport = settings.externalBtBlinkTransport
         pendingAnnounceConnectionConfiguration = settings.announceConnectionConfiguration
         pendingNativeApTransport = settings.nativeApStrategy
         pendingNativeDriverSelectionMode = settings.nativeDriverSelectionMode
@@ -497,6 +501,7 @@ class SettingsFragment : Fragment() {
         pendingStaticAudioFocus = settings.staticAudioFocus
         pendingPlaybackFocusMode = settings.playbackFocusMode
         pendingUseAacAudio = settings.useAacAudio
+        pendingUseAAudioOutput = settings.useAAudioOutput
         pendingAttachHwDspEqualizer = settings.attachHwDspEqualizer
         pendingEnableRotary = settings.enableRotary
         pendingMediaKeyRouting = settings.mediaKeyRouting
@@ -535,7 +540,7 @@ class SettingsFragment : Fragment() {
         pendingBluetoothManagerServiceName = settings.bluetoothManagerServiceName
         pendingNativeAaIgnoreExternalBt = settings.nativeAaIgnoreExternalBt
         pendingExternalBtZbtTransport = settings.externalBtZbtTransport
-        pendingNativeAaCompleteHfpSlc = settings.nativeAaCompleteHfpSlc
+        pendingExternalBtBlinkTransport = settings.externalBtBlinkTransport
         pendingAnnounceConnectionConfiguration = settings.announceConnectionConfiguration
         pendingNativeApTransport = settings.nativeApStrategy
         pendingNativeDriverSelectionMode = NativeDriverSelectionPolicy.Mode.AUTO
@@ -729,6 +734,7 @@ class SettingsFragment : Fragment() {
         pendingPlaybackFocusMode?.let { settings.playbackFocusMode = it }
         if (focusModeChanged) settings.playbackFocusSelfDefeating = false
         pendingUseAacAudio?.let { settings.useAacAudio = it }
+        pendingUseAAudioOutput?.let { settings.useAAudioOutput = it }
         pendingAttachHwDspEqualizer?.let { settings.attachHwDspEqualizer = it }
         pendingMicInputSource?.let { settings.micInputSource = it }
         pendingEnableRotary?.let { settings.enableRotary = it }
@@ -783,7 +789,7 @@ class SettingsFragment : Fragment() {
         pendingBluetoothManagerServiceName?.let { settings.bluetoothManagerServiceName = it }
         pendingNativeAaIgnoreExternalBt?.let { settings.nativeAaIgnoreExternalBt = it }
         pendingExternalBtZbtTransport?.let { settings.externalBtZbtTransport = it }
-        pendingNativeAaCompleteHfpSlc?.let { settings.nativeAaCompleteHfpSlc = it }
+        pendingExternalBtBlinkTransport?.let { settings.externalBtBlinkTransport = it }
         pendingAnnounceConnectionConfiguration?.let { settings.announceConnectionConfiguration = it }
         pendingNativeApTransport?.let { settings.nativeApStrategy = it }
         pendingNativeDriverSelectionMode?.let { settings.nativeDriverSelectionMode = it }
@@ -883,6 +889,7 @@ class SettingsFragment : Fragment() {
                         pendingStaticAudioFocus != settings.staticAudioFocus ||
                         pendingPlaybackFocusMode != settings.playbackFocusMode ||
                         pendingUseAacAudio != settings.useAacAudio ||
+                        pendingUseAAudioOutput != settings.useAAudioOutput ||
                         pendingAttachHwDspEqualizer != settings.attachHwDspEqualizer ||
                         pendingMicInputSource != settings.micInputSource ||
                         pendingEnableRotary != settings.enableRotary ||
@@ -923,7 +930,7 @@ class SettingsFragment : Fragment() {
                         pendingBluetoothManagerServiceName != settings.bluetoothManagerServiceName ||
                         pendingNativeAaIgnoreExternalBt != settings.nativeAaIgnoreExternalBt ||
                         pendingExternalBtZbtTransport != settings.externalBtZbtTransport ||
-                        pendingNativeAaCompleteHfpSlc != settings.nativeAaCompleteHfpSlc ||
+                        pendingExternalBtBlinkTransport != settings.externalBtBlinkTransport ||
                         pendingAnnounceConnectionConfiguration != settings.announceConnectionConfiguration ||
                         pendingNativeApTransport != settings.nativeApStrategy ||
                         pendingNativeDriverSelectionMode != settings.nativeDriverSelectionMode ||
@@ -966,6 +973,7 @@ class SettingsFragment : Fragment() {
                           pendingStaticAudioFocus != settings.staticAudioFocus ||
                           pendingPlaybackFocusMode != settings.playbackFocusMode ||
                           pendingUseAacAudio != settings.useAacAudio ||
+                          pendingUseAAudioOutput != settings.useAAudioOutput ||
                           pendingAttachHwDspEqualizer != settings.attachHwDspEqualizer ||
                           pendingAudioLatencyMultiplier != settings.audioLatencyMultiplier ||
                           pendingAudioQueueCapacity != settings.audioQueueCapacity ||
@@ -1134,7 +1142,8 @@ class SettingsFragment : Fragment() {
                 }
 
                 if (newMode == WifiLauncherMode.NATIVE) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                    if (!ExternalBtTransportPolicy.usesExternalModule(pendingExternalBtRoute()) &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                         ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                         bluetoothPermissionLauncher.launch(android.Manifest.permission.BLUETOOTH_CONNECT)
                     } else {
@@ -1294,6 +1303,20 @@ class SettingsFragment : Fragment() {
                 addStationStandDownSetting(items)
             }
 
+            if (ExternalBtTransportPolicy.usesExternalModule(pendingExternalBtRoute())) {
+                items.add(SettingItem.InfoBanner(
+                    stableId = "externalBtModuleControlsHint",
+                    textResId = R.string.external_bt_module_controls_hint
+                ))
+                settings.lastExternalModulePhoneMac.takeIf { it.isNotBlank() }?.let { phoneMac ->
+                    items.add(SettingItem.SettingEntry(
+                        stableId = "externalBtModuleLastPhone",
+                        nameResId = R.string.external_bt_module_last_phone,
+                        value = phoneMac,
+                        onClick = { }
+                    ))
+                }
+            } else {
             // Multi-Driver Selection settings for Native AA
             val currentDriverMode = pendingNativeDriverSelectionMode ?: NativeDriverSelectionPolicy.Mode.AUTO
             items.add(SettingItem.SegmentedButtonSettingEntry(
@@ -1396,7 +1419,9 @@ class SettingsFragment : Fragment() {
             // Only where the detection has fired: everywhere else this governs a gate that never
             // closes, and a switch that changes nothing is what sends people down a wrong
             // diagnosis. The evidence is a lazy, so asking on every rebuild costs one field read.
-            if (BluetoothHelper.externalBtEvidence != null) {
+            // FYT module evidence closes the same gate, so it must offer the same way out for a
+            // unit whose phone really pairs with the Android radio.
+            if (BluetoothHelper.externalBtEvidence != null || BluetoothHelper.fytModuleEvidence != null) {
                 items.add(SettingItem.ToggleSettingEntry(
                     stableId = "nativeAaIgnoreExternalBt",
                     nameResId = R.string.native_aa_ignore_external_bt,
@@ -1410,19 +1435,6 @@ class SettingsFragment : Fragment() {
                     }
                 ))
             }
-
-            items.add(SettingItem.ToggleSettingEntry(
-                stableId = "nativeAaCompleteHfpSlc",
-                nameResId = R.string.native_aa_complete_hfp_slc,
-                descriptionResId = R.string.native_aa_complete_hfp_slc_description,
-                isChecked = pendingNativeAaCompleteHfpSlc ?: settings.nativeAaCompleteHfpSlc,
-                searchKeywords = "bluetooth hfp hands-free handsfree calls profile wireless",
-                onCheckedChanged = { isChecked ->
-                    pendingNativeAaCompleteHfpSlc = isChecked
-                    checkChanges()
-                    updateSettingsList()
-                }
-            ))
 
             // An action, not a switch: the wake's cost is a property of this unit's own Bluetooth
             // stack, which is measured rather than asked. What a user can do is ask for the
@@ -1458,6 +1470,7 @@ class SettingsFragment : Fragment() {
                         .show()
                 }
             ))
+            }
 
             // Rendering it here is half the gate: AapService re-tests the connection mode before
             // acting on it, because a preference turned on under Native AA and then hidden by a
@@ -1495,6 +1508,23 @@ class SettingsFragment : Fragment() {
             }
         }
 
+        // Only where FYT's blink daemon relays the BLINK module's Android Auto channel. Needs root.
+        val blinkEnabled = pendingExternalBtBlinkTransport ?: settings.externalBtBlinkTransport
+        if (ExternalBtTransportPolicy.showBlinkToggle(BluetoothHelper.fytModuleEvidence, blinkEnabled)) {
+            items.add(SettingItem.ToggleSettingEntry(
+                stableId = "externalBtBlinkTransport",
+                nameResId = R.string.external_bt_blink_transport,
+                descriptionResId = R.string.external_bt_blink_transport_description,
+                isChecked = blinkEnabled,
+                searchKeywords = "fyt blink duduauto dudu carlink external bluetooth module transport auto_serial",
+                onCheckedChanged = { isChecked ->
+                    pendingExternalBtBlinkTransport = isChecked
+                    checkChanges()
+                    updateSettingsList()
+                }
+            ))
+        }
+
         // Only on units whose Bluetooth is an external module, where the native route is refused
         // outright and this is the one thing that might change that. Everywhere else it would be an
         // action with no meaning.
@@ -1502,7 +1532,10 @@ class SettingsFragment : Fragment() {
         // Deliberately outside the Native AA block: the reporters who need this are on units where
         // that mode does not work, so requiring them to select it first would hide the diagnostic
         // behind the very setting it is diagnosing.
-        if (BluetoothHelper.externalBtEvidence != null) {
+        // Not on FYT module units, which have no ZLink daemon; the route refuses ZBT there anyway.
+        // Still shown while on, so a toggle left over from before can be turned off.
+        val zbtChecked = pendingExternalBtZbtTransport ?: settings.externalBtZbtTransport
+        if (BluetoothHelper.externalBtEvidence != null && (BluetoothHelper.fytModuleEvidence == null || zbtChecked)) {
             items.add(SettingItem.ToggleSettingEntry(
                 stableId = "externalBtZbtTransport",
                 nameResId = R.string.external_bt_transport,
@@ -1812,6 +1845,9 @@ class SettingsFragment : Fragment() {
             onCheckedChanged = { isChecked ->
                 pendingEnableCarLauncher = isChecked
                 CarLauncherManager.setLauncherEnabled(requireContext(), isChecked)
+                if (isChecked && !CarLauncherManager.isDefaultLauncher(requireContext())) {
+                    CarLauncherManager.promptSetDefaultLauncher(requireContext())
+                }
                 checkChanges()
                 updateSettingsList()
             }
@@ -2515,6 +2551,20 @@ class SettingsFragment : Fragment() {
             }
         ))
 
+        if (Build.VERSION.SDK_INT >= 26) {
+            items.add(SettingItem.ToggleSettingEntry(
+                stableId = "useAAudioOutput",
+                nameResId = R.string.aaudio_output,
+                descriptionResId = R.string.aaudio_output_description,
+                isChecked = pendingUseAAudioOutput ?: settings.useAAudioOutput,
+                onCheckedChanged = { isChecked ->
+                    pendingUseAAudioOutput = isChecked
+                    checkChanges()
+                    updateSettingsList()
+                }
+            ))
+        }
+
         items.add(SettingItem.ToggleSettingEntry(
             stableId = "useAacAudio",
             nameResId = R.string.use_aac_audio,
@@ -2589,11 +2639,11 @@ class SettingsFragment : Fragment() {
             value = "${pendingAudioLatencyMultiplier}x",
             onClick = { _ ->
                 val options = arrayOf(
-                    "1x (shallowest cushion)", "2x (shallow)", "4x (medium)",
+                    "1x (lowest latency)", "2x (low latency)", "4x (medium)",
                     "8x (deep)", "16x (deepest, default)"
                 )
                 val values = intArrayOf(1, 2, 4, 8, 16)
-                val currentIndex = values.indexOf(pendingAudioLatencyMultiplier ?: 8).coerceAtLeast(0)
+                val currentIndex = values.indexOf(pendingAudioLatencyMultiplier ?: com.andrerinas.openheadunit.decoder.audio.AudioJitterBufferPolicy.DEFAULT_MULTIPLIER).coerceAtLeast(0)
                 AlertDialog.Builder(requireContext())
                     .setTitle(R.string.audio_latency_multiplier)
                     .setSingleChoiceItems(options, currentIndex) { dialog, which ->
@@ -3065,6 +3115,15 @@ class SettingsFragment : Fragment() {
         ))
 
         items.add(SettingItem.SettingEntry(
+            stableId = "check_for_updates",
+            nameResId = R.string.check_for_updates,
+            value = getString(R.string.check_for_updates_description),
+            onClick = {
+                handleCheckForUpdates()
+            }
+        ))
+
+        items.add(SettingItem.SettingEntry(
             stableId = "support",
             nameResId = R.string.support,
             value = getString(R.string.support_description),
@@ -3369,6 +3428,7 @@ class SettingsFragment : Fragment() {
         val wifiDirectBand: Int,
         val fiveGhzChannel: Int,
         val externalBtZbtTransport: Boolean,
+        val externalBtBlinkTransport: Boolean,
         val nativeAaIgnoreExternalBt: Boolean,
         val autoEnableHotspot: Boolean,
         val insecureAaRfcommListener: Boolean,
@@ -3765,6 +3825,7 @@ class SettingsFragment : Fragment() {
             wifiDirectBand = settings.wifiDirectBand,
             fiveGhzChannel = settings.fiveGhzChannel,
             externalBtZbtTransport = settings.externalBtZbtTransport,
+            externalBtBlinkTransport = settings.externalBtBlinkTransport,
             nativeAaIgnoreExternalBt = settings.nativeAaIgnoreExternalBt,
             autoEnableHotspot = settings.autoEnableHotspot,
             insecureAaRfcommListener = settings.insecureAaRfcommListener,
@@ -3828,6 +3889,7 @@ class SettingsFragment : Fragment() {
         wifiDirectBand = settings.wifiDirectBand,
         fiveGhzChannel = settings.fiveGhzChannel,
         externalBtZbtTransport = settings.externalBtZbtTransport,
+        externalBtBlinkTransport = settings.externalBtBlinkTransport,
         nativeAaIgnoreExternalBt = settings.nativeAaIgnoreExternalBt,
         autoEnableHotspot = settings.autoEnableHotspot,
         insecureAaRfcommListener = settings.insecureAaRfcommListener,
@@ -3843,6 +3905,7 @@ class SettingsFragment : Fragment() {
             wifiDirectBand = snapshot.wifiDirectBand,
             fiveGhzChannel = snapshot.fiveGhzChannel,
             externalBtZbtTransport = snapshot.externalBtZbtTransport,
+            externalBtBlinkTransport = snapshot.externalBtBlinkTransport,
             nativeAaIgnoreExternalBt = snapshot.nativeAaIgnoreExternalBt,
             autoEnableHotspot = snapshot.autoEnableHotspot,
             insecureAaRfcommListener = snapshot.insecureAaRfcommListener,
@@ -4229,6 +4292,17 @@ class SettingsFragment : Fragment() {
     /** The transport the Native AA block is currently showing settings for. */
     private fun pendingNativeTransport(): NativeTransport =
         pendingNativeApTransport ?: NativeStrategy.DEFAULT
+
+    /** The Bluetooth route represented by the unsaved controls currently on screen. */
+    private fun pendingExternalBtRoute(): ExternalBtTransportPolicy.Route =
+        ExternalBtTransportPolicy.route(
+            BluetoothHelper.externalBtEvidence,
+            pendingExternalBtZbtTransport ?: settings.externalBtZbtTransport,
+            pendingNativeAaIgnoreExternalBt ?: settings.nativeAaIgnoreExternalBt,
+            ZbtDaemonReachability.cached(),
+            pendingExternalBtBlinkTransport ?: settings.externalBtBlinkTransport,
+            BluetoothHelper.fytModuleEvidence
+        )
 
     /** The WiFi Direct band the block is currently showing settings for. */
     private fun pendingP2pBandPreference(): P2pBandPreference =
@@ -4776,10 +4850,13 @@ class SettingsFragment : Fragment() {
             // Unless there is a route to that chip, in which case the flat refusal below would be
             // wrong: either the user turned the transport on, or the daemon answered when asked.
             // The dial is a socket connect, so it never happens on this thread.
-            val chosen = pendingExternalBtZbtTransport ?: settings.externalBtZbtTransport
+            // ZBT only counts off FYT module units, where the route can actually take it.
+            val chosen = ((pendingExternalBtZbtTransport ?: settings.externalBtZbtTransport) &&
+                BluetoothHelper.fytModuleEvidence == null) ||
+                (pendingExternalBtBlinkTransport ?: settings.externalBtBlinkTransport)
             externalBtRouteJob?.cancel()
             externalBtRouteJob = viewLifecycleOwner.lifecycleScope.launch {
-                val viaModule = if (chosen) true else {
+                val viaModule = if (chosen) true else if (BluetoothHelper.fytModuleEvidence != null) false else {
                     ZbtDaemonReachability.cached()
                         ?: withContext(Dispatchers.IO) { ZbtDaemonReachability.resolve() }
                 }
@@ -5204,4 +5281,54 @@ class SettingsFragment : Fragment() {
         alertDialog.show()
     }
 
+    private fun handleCheckForUpdates() {
+        val ctx = context ?: return
+        ToastUtils.showToast(ctx, R.string.checking_for_updates, Toast.LENGTH_SHORT, force = true)
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = UpdateChecker.check(ctx)
+            if (!isAdded) return@launch
+
+            result.fold(
+                onSuccess = { info ->
+                    if (info.isUpdateAvailable) {
+                        val message = if (info.isPlayStore) {
+                            getString(R.string.update_available_playstore_message, info.latestVersionName)
+                        } else {
+                            getString(R.string.update_available_github_message, info.latestVersionName)
+                        }
+
+                        val builder = MaterialAlertDialogBuilder(ctx, R.style.DarkAlertDialog)
+                            .setTitle(R.string.update_available_title)
+                            .setMessage(message)
+                            .setNegativeButton(R.string.cancel, null)
+
+                        if (info.isPlayStore) {
+                            builder.setPositiveButton(R.string.open_play_store) { _, _ ->
+                                UpdateChecker.openPlayStore(ctx)
+                            }
+                        } else {
+                            builder.setPositiveButton(R.string.open_github_releases) { _, _ ->
+                                UpdateChecker.openGitHubReleases(ctx, info.releaseUrl)
+                            }
+                        }
+                        builder.show()
+                    } else {
+                        MaterialAlertDialogBuilder(ctx, R.style.DarkAlertDialog)
+                            .setTitle(R.string.update_not_available_title)
+                            .setMessage(getString(R.string.update_not_available_message, info.currentVersionName))
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show()
+                    }
+                },
+                onFailure = {
+                    MaterialAlertDialogBuilder(ctx, R.style.DarkAlertDialog)
+                        .setTitle(R.string.check_for_updates)
+                        .setMessage(R.string.update_check_failed)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }
+            )
+        }
+    }
 }
