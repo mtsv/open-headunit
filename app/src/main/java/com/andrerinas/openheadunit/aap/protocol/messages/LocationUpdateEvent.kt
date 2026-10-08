@@ -2,15 +2,13 @@ package com.andrerinas.openheadunit.aap.protocol.messages
 
 import android.location.Location
 import com.andrerinas.openheadunit.aap.protocol.proto.Sensors
+import com.andrerinas.openheadunit.location.LocationAccuracyPolicy
 import com.google.protobuf.Message
 
 class LocationUpdateEvent(location: Location)
     : SensorEvent(Sensors.SensorType.LOCATION_VALUE, makeProto(location)) {
 
     companion object {
-        /** Stand-in for a fix that reports no accuracy: 100 m, in the field's millimetres. */
-        private const val UNKNOWN_ACCURACY_MM = 100_000
-
         private fun makeProto(location: Location): Message {
             return Sensors.SensorBatch.newBuilder().also { batch ->
                 batch.addLocationData(
@@ -30,13 +28,12 @@ class LocationUpdateEvent(location: Location)
                         // accuracy is a proto2 `required` field, so leaving it unset throws
                         // UninitializedMessageException out of build() - and on the control
                         // channel that surfaces as a HandleException, which kills the session.
-                        // A fix without a reported accuracy is rare but does happen, so declare
-                        // it coarse rather than fail to build at all.
-                        accuracy = if (location.hasAccuracy()) {
-                            (location.accuracy * 1E3).toInt()
-                        } else {
-                            UNKNOWN_ACCURACY_MM
-                        }
+                        // LocationAccuracyPolicy is what guarantees a usable number for every
+                        // fix, including the chips that answer hasAccuracy() with true and then
+                        // report zero.
+                        accuracy = LocationAccuracyPolicy.accuracyMm(
+                            location.hasAccuracy(), location.accuracy
+                        )
                     }
                 )
             }.build()
