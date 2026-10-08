@@ -41,9 +41,11 @@ import com.andrerinas.openheadunit.connection.wifi.HotspotExitAction
 import com.andrerinas.openheadunit.connection.wifi.UsbSessionQuiescePolicy
 import com.andrerinas.openheadunit.connection.wifi.SettingsScreenPausePolicy
 import com.andrerinas.openheadunit.connection.wifi.WirelessBringUpDeferralPolicy
+import com.andrerinas.openheadunit.connection.wifi.WirelessSleepHold
 import com.andrerinas.openheadunit.connection.wifi.UserExitHotspotPolicy
 import com.andrerinas.openheadunit.main.MainActivity
 import com.andrerinas.openheadunit.R
+import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.zbt.ZbtDaemonReachability
 import com.andrerinas.openheadunit.utils.AppLog
 import com.andrerinas.openheadunit.utils.AppPermissions
 import com.andrerinas.openheadunit.utils.BluetoothAddressSeedPolicy
@@ -74,6 +76,7 @@ import com.andrerinas.openheadunit.utils.LogExporter
 import com.andrerinas.openheadunit.utils.NightModeManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.hardware.usb.UsbManager
@@ -111,6 +114,7 @@ import com.andrerinas.openheadunit.main.BackgroundNotification
 import com.andrerinas.openheadunit.main.SettingsActivity
 import com.andrerinas.openheadunit.main.FloatingButtonManager
 import com.andrerinas.openheadunit.main.MediaNotificationTextPolicy
+import com.andrerinas.openheadunit.utils.ScreenPower
 import com.andrerinas.openheadunit.utils.Settings
 import com.andrerinas.openheadunit.utils.VpnControl
 import com.andrerinas.openheadunit.utils.protoUint32ToLong
@@ -562,15 +566,24 @@ class AapService : Service() {
 
     private val sensorRefreshReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == ACTION_REFRESH_SENSORS) {
-                AppLog.i("AapService: Received request to refresh all sensors")
-                // Re-send current states
-                nightModeManager?.resendCurrentState()
-            } else if (intent.action == ACTION_RESTART_AUDIO) {
-                AppLog.i("AapService: Received request to restart audio")
-                commManager.restartAudio()
-            }
+            if (intent.action == ACTION_REFRESH_SENSORS) refreshSensors()
+            else if (intent.action == ACTION_RESTART_AUDIO) restartAudio()
         }
+    }
+
+    private fun refreshSensors() {
+        AppLog.i("AapService: Received request to refresh all sensors")
+        // Re-send current states
+        nightModeManager?.resendCurrentState()
+    }
+
+    private fun restartAudio() {
+        AppLog.i("AapService: Received request to restart audio")
+        commManager.restartAudio()
+    }
+
+    private fun raiseProjection() {
+        launchAapProjectionActivity(allowNotificationFallback = false)
     }
 
     // Receives ACTION_RAISE_PROJECTION, sent by the projection activity when a call screen has
@@ -579,7 +592,7 @@ class AapService : Service() {
     private val raiseProjectionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != ACTION_RAISE_PROJECTION) return
-            launchAapProjectionActivity(allowNotificationFallback = false)
+            raiseProjection()
         }
     }
 
@@ -656,6 +669,7 @@ class AapService : Service() {
 
                     AppLog.i("WakeDetect: SCREEN_ON (screen was off for ${offSec}s)")
                     AccPowerState.noteOn()
+                    replaySleepHold("SCREEN_ON")
                     if (offDuration > HIBERNATE_WAKE_THRESHOLD_MS) {
                         AccPowerState.noteWake()
                         rearmNativeHotspotAfterWake("SCREEN_ON after ${offSec}s sleep")
@@ -740,6 +754,7 @@ class AapService : Service() {
      */
     private fun onHibernateWake(trigger: String) {
         AccPowerState.noteWake()
+        replaySleepHold(trigger)
         // Debounce: don't re-trigger within 10 seconds (covers BootCompleteReceiver + this)
         val now = SystemClock.elapsedRealtime()
         if (now - lastWakeHandledTimestamp < 10_000) {
@@ -1023,7 +1038,8 @@ class AapService : Service() {
         super.onCreate()
         AppLog.i("AapService creating...")
         instance = this
-        AccPowerState.noteOn()
+        // A dark screen is not evidence that the car is on.
+        if (ScreenPower.isInteractive(this) != false) AccPowerState.noteOn()
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -1171,11 +1187,15 @@ class AapService : Service() {
                     is CommManager.ConnectionState.HandshakeComplete -> {
                         // At SSL, not at the transport open: until then the arbiter owns the window.
                         quiesceWirelessForWiredSession()
+                        StationStandDown.onSessionLive(this@AapService, wifiLockHeldForMs())
                         projectionRaisesThisSession = 0
                         armProjectionRaiseDeadline(launchAapProjectionActivity())
                     }
                     is CommManager.ConnectionState.TransportStarted -> {
                         quiesceWirelessForWiredSession() // The flow is conflated: HandshakeComplete can be skipped.
+                        StationStandDown.onSessionLive(this@AapService, wifiLockHeldForMs())
+                        // Backstop for a skipped Connected; a no-op once onConnected released it.
+                        stopDummyVpn(DummyVpnPolicy.Reason.SELF_MODE_SESSION_LIVE)
                         cancelProjectionRaiseDeadline()
                         hasEverConnected = true
                         projectingSinceMs = SystemClock.elapsedRealtime()
@@ -1295,6 +1315,9 @@ class AapService : Service() {
         }
         // After the quiesce, which may have just stopped the P2P group: shouldStartForSession()
         // asks for a wireless Native AA session, so a wired one gets no VPN either way.
+        // The tun only lets Android Auto launch offline; held for the session it takes IPv4
+        // from every network joined later.
+        stopDummyVpn(DummyVpnPolicy.Reason.SELF_MODE_SESSION_LIVE)
         maybeStartSessionDummyVpn()
 
         // Activate session-scoped car key receivers (e.g. FYT)
@@ -2046,6 +2069,12 @@ class AapService : Service() {
      * between a phone found as the drive starts and one found a minute into it.
      */
     private fun onWifiJoinDetected(source: String, isConnected: Boolean) {
+        // First, before the debounce below: a rejoin inside an unrelated event's window must not be dropped.
+        if (isConnected) {
+            StationStandDown.onStationJoined(this, wifiLockHeldForMs())
+        } else {
+            StationStandDown.onStationLeft(this)
+        }
         // Whatever else this network is, it ends the wait a WiFi teardown started. The
         // forceStartDiscoveryScan() below is what actually revives the loop.
         if (isConnected && discoveryDormantAfterWifiLoss) {
@@ -2095,6 +2124,7 @@ class AapService : Service() {
             }
             override fun onLost(network: Network) {
                 AppLog.w("NetworkMonitor: Network lost: $network")
+                StationStandDown.onStationLeft(this@AapService)
             }
             override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
                 AppLog.d("NetworkMonitor: Capabilities changed: $network → $caps")
@@ -2136,8 +2166,8 @@ class AapService : Service() {
         if (ConnectionArbiter.usbEpisodeSpent()) return false
 
         val accessoryOnBus = try {
-            val usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
-            usbManager.deviceList.values.any { UsbDeviceCompat.isInAccessoryMode(it) }
+            UsbDeviceCompat.usbManager(this)?.deviceList?.values
+                ?.any { UsbDeviceCompat.isInAccessoryMode(it) } ?: false
         } catch (e: Exception) {
             AppLog.w("AapService: Could not read the USB bus before wireless bring-up: ${e.message}")
             false
@@ -2353,6 +2383,62 @@ class AapService : Service() {
 
     private var settingsRearmJob: Job? = null
 
+    private var sleepReplayJob: Job? = null
+
+    /** Re-arms a bring-up that [WirelessSleepHold] refused while the unit was asleep. */
+    private fun replaySleepHold(trigger: String) {
+        val held = WirelessSleepHold.take() ?: return
+        val startsAtTake = WirelessSleepHold.startsAtTake // A later take moves the global baseline.
+        if (sleepReplayForce(held) == null) {
+            AppLog.i("WakeDetect: a session is up, so the wireless bring-up held while the unit was asleep is dropped (trigger=$trigger)")
+            return
+        }
+        if (wirelessPausedForSettings) {
+            AppLog.i("WakeDetect: the wireless bring-up held while the unit was asleep waits for the settings screen to close")
+            wirelessRearmPendingForSettings = true
+            return
+        }
+        AppLog.i("WakeDetect: re-arming the wireless bring-up held while the unit was asleep (force=$held, trigger=$trigger)")
+        sleepReplayJob?.cancel()
+        sleepReplayJob = serviceScope.launch {
+            delay(1500) // Same settle the settings re-arm allows the P2P hardware.
+            while (WirelessSleepHold.waitsForAttempt(held, commManager.isConnected, sleepReplayConnecting())) {
+                AppLog.i("WakeDetect: a connection attempt is in flight, so the held forced wireless bring-up waits for it to end")
+                commManager.connectionState.first { it !is CommManager.ConnectionState.Connecting }
+            }
+            val heldForce = sleepReplayForce(held) ?: run {
+                AppLog.i("WakeDetect: a session came up during the settle, so the held wireless bring-up is dropped")
+                return@launch
+            }
+            // A bring-up that started after the take already rebuilt, so the replay does not force a second.
+            val force = WirelessSleepHold.replayKeepsForce(
+                heldForce, startsAtTake, WirelessSleepHold.starts
+            )
+            if (heldForce && !force) {
+                AppLog.i("WakeDetect: a wireless bring-up started after the hold was taken, so the held one replays unforced")
+            }
+            val launcher = wifiLauncherManager.active as? WifiLauncherNative
+            WirelessSleepHold.replayVeto(
+                force,
+                networkComingUp = launcher?.networkComingUp(),
+                attemptInFlight = launcher?.handshakeManager?.isAttemptInFlight(),
+            )?.let { reason ->
+                AppLog.i("WakeDetect: the held wireless bring-up is dropped, because $reason")
+                return@launch
+            }
+            wifiLauncherManager.setActiveFromSettings(force = force)
+        }
+    }
+
+    private fun sleepReplayForce(held: Boolean): Boolean? = WirelessSleepHold.replayForce(
+        held,
+        connected = commManager.isConnected,
+        connecting = sleepReplayConnecting(),
+    )
+
+    private fun sleepReplayConnecting(): Boolean =
+        commManager.connectionState.value is CommManager.ConnectionState.Connecting
+
     /** The settings screen opened or closed, or its QR dialog took or released its hold. */
     fun onSettingsScreenChanged(inForeground: Boolean? = null, qrHold: Boolean? = null) {
         if (qrHold != null) settingsQrHold = qrHold
@@ -2465,6 +2551,11 @@ class AapService : Service() {
         }
     }
 
+    private var wifiLockAcquiredAtMs = 0L
+
+    private fun wifiLockHeldForMs(): Long? =
+        wifiLockAcquiredAtMs.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
+
     private fun acquireWifiLock() {
         val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         if (wifiLock == null) {
@@ -2472,6 +2563,7 @@ class AapService : Service() {
         }
         if (wifiLock?.isHeld == false) {
             wifiLock?.acquire()
+            wifiLockAcquiredAtMs = SystemClock.elapsedRealtime()
             AppLog.i("WifiLock acquired (HIGH_PERF)")
         }
         // LOW_LATENCY disables radio power-save batching while projection is visible. Retain
@@ -2500,6 +2592,7 @@ class AapService : Service() {
         }
         if (wifiLock?.isHeld == true) {
             wifiLock?.release()
+            wifiLockAcquiredAtMs = 0L
             AppLog.i("WifiLock released")
         }
     }
@@ -2618,6 +2711,9 @@ class AapService : Service() {
         FloatingButtonManager.removeOverlay(this)
         isDestroying = true
         ConnectionArbiter.actions = null
+        // The hold outlives this instance; the next one arms from its own onCreate.
+        WirelessSleepHold.clear()
+        sleepReplayJob?.cancel()
         // Nothing else clears it here, and the manager outlives the service instance.
         selfLauncherManager.isActive = false
         autoResumePlaybackJob?.cancel()
@@ -2676,6 +2772,7 @@ class AapService : Service() {
         usbLauncherManager.unregister()
         try { unregisterReceiver(mediaButtonReceiver) } catch (_: Exception) {}
         try { unregisterReceiver(wakeDetectReceiver) } catch (_: Exception) {}
+        sleepReplayJob?.cancel()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
             try { unregisterReceiver(legacyWifiJoinReceiver) } catch (_: Exception) {}
         }
@@ -2922,9 +3019,16 @@ class AapService : Service() {
                     userExitedAA = false
                     userExitCooldownUntil = 0L
                     val native = wifiLauncherManager.active as? WifiLauncherNative
+                    if (NativeAaHandshakeManager.wifiButtonRemeasures(this)) {
+                        val age = ZbtDaemonReachability.answerAgeMs()?.let { it / 1000 }
+                        AppLog.i("AapService: WiFi button: the vendor daemon refused ${age}s ago; asking it again.")
+                        ZbtDaemonReachability.forget()
+                    }
                     val action = ModuleRearmPolicy.action(
                         nativeLauncherStarted = native != null && wifiLauncherManager.activeIsStarted,
+                        launcherRefusedModule = native?.refusedModuleAtStart == true,
                         handshakeStarted = native?.handshakeManager?.isStarted() == true,
+                        measuringDaemon = native?.handshakeManager?.isMeasuringDaemon() == true,
                     )
                     AppLog.i("AapService: WiFi button on the Bluetooth module route: $action")
                     when (action) {
@@ -2932,8 +3036,11 @@ class AapService : Service() {
                             wifiLauncherManager.setActiveFromSettings(force = true, userRequested = true)
                         ModuleRearmPolicy.Action.START_HANDSHAKE -> {
                             native?.handshakeManager?.start()
-                            native?.handshakeManager?.notStartedReason()?.let {
-                                ToastUtils.showToast(this, getString(R.string.native_aa_poke_not_running))
+                            // A press that started the measurement is working, not failing.
+                            if (native?.handshakeManager?.isMeasuringDaemon() != true) {
+                                native?.handshakeManager?.notStartedReason()?.let {
+                                    ToastUtils.showToast(this, getString(R.string.native_aa_poke_not_running))
+                                }
                             }
                         }
                         ModuleRearmPolicy.Action.WAKE_PHONE ->
@@ -2941,6 +3048,8 @@ class AapService : Service() {
                                 AppLog.i("AapService: no module channel is open yet, so the bring-up in flight wakes the phone.")
                             }
                     }
+                } else {
+                    AppLog.i("AapService: Native-AA poke without a device ignored: this unit's WiFi button does not use the Bluetooth module route.")
                 }
             }
             ACTION_END_SESSION_STAY_ARMED -> {
@@ -2998,6 +3107,12 @@ class AapService : Service() {
                         startActivity(mainIntent)
                     }
                 }
+            }
+            ACTION_RESTART_AUDIO         -> restartAudio()
+            ACTION_REFRESH_SENSORS       -> refreshSensors()
+            ACTION_RAISE_PROJECTION      -> {
+                if (commManager.isConnected) raiseProjection()
+                else AppLog.i("AapService: raise projection ignored, no session")
             }
             ACTION_NATIVE_AA_CANCEL_POKE -> {
                 AppLog.i("AapService: ACTION_NATIVE_AA_CANCEL_POKE received — user explicitly canceled driver selection")
@@ -3496,6 +3611,13 @@ class AapService : Service() {
         const val ACTION_REFRESH_SENSORS         = "com.andrerinas.openheadunit.aap.action.REFRESH_SENSORS"
         const val ACTION_RESTART_AUDIO           = "com.andrerinas.openheadunit.aap.action.RESTART_AUDIO"
         const val ACTION_RAISE_PROJECTION        = "com.andrerinas.openheadunit.aap.action.RAISE_PROJECTION"
+
+        /** Every action [onStartCommand] has a branch for; an automation relay outside it is dropped silently. */
+        val HANDLED_START_ACTIONS: Set<String> = setOf(
+            ACTION_STOP_SERVICE, ACTION_DISCONNECT, ACTION_STOP_WIRELESS, ACTION_CANCEL_WIRELESS,
+            ACTION_START_WIRELESS_SCAN, ACTION_END_SESSION_STAY_ARMED, ACTION_NATIVE_AA_CANCEL_POKE,
+            ACTION_RESTART_AUDIO, ACTION_REFRESH_SENSORS, ACTION_RAISE_PROJECTION,
+        )
         /**
          * Sent after the caller has already invoked [CommManager.connect(socket)].
          * The [observeConnectionState] flow observer handles the result — [onStartCommand]

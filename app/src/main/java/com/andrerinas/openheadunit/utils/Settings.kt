@@ -10,6 +10,8 @@ import android.location.Location
 import android.media.AudioManager
 import android.os.Build
 import com.andrerinas.openheadunit.input.MediaKeyRoutingPolicy
+import com.andrerinas.openheadunit.view.PerformanceOverlayField
+import com.andrerinas.openheadunit.view.PerformanceOverlayPolicy
 import com.andrerinas.openheadunit.decoder.video.VideoFaultInjector
 import com.andrerinas.openheadunit.decoder.video.DeviceMemoryProfile
 import com.andrerinas.openheadunit.decoder.audio.PlaybackFocusPolicy
@@ -21,6 +23,7 @@ import com.andrerinas.openheadunit.connection.usb.UsbDeviceCompat
 import com.andrerinas.openheadunit.connection.wifi.direct.GroupIdentityStability
 import com.andrerinas.openheadunit.connection.wifi.direct.ObservedP2pCredentials
 import com.andrerinas.openheadunit.connection.wifi.direct.ObservedP2pGroup
+import com.andrerinas.openheadunit.connection.wifi.direct.StationStandDownReassertPolicy
 import com.andrerinas.openheadunit.connection.wifi.direct.StoredP2pIdentity
 import com.andrerinas.openheadunit.connection.wifi.modes.helper.HelperStrategy
 import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.NativeDriverSelectionPolicy
@@ -127,6 +130,14 @@ class Settings(private val context: Context) {
         get() = prefs.getBoolean("enable-floating-button", false)
         set(value) { prefs.edit().putBoolean("enable-floating-button", value).apply() }
 
+    var floatingButtonConnectionStatusMode: Boolean
+        get() = prefs.getBoolean("floating-button-connection-status-mode", false)
+        set(value) { prefs.edit().putBoolean("floating-button-connection-status-mode", value).apply() }
+
+    var floatingButtonDisconnectedOpacityPercent: Int
+        get() = prefs.getInt("floating-button-disconnected-opacity-percent", 10)
+        set(value) { prefs.edit().putInt("floating-button-disconnected-opacity-percent", value.coerceIn(0, 100)).apply() }
+
     var floatingButtonXPercent: Int
         get() = prefs.getInt("floating-button-x-percent", 0)
         set(value) { prefs.edit().putInt("floating-button-x-percent", value.coerceIn(0, 100)).apply() }
@@ -137,7 +148,7 @@ class Settings(private val context: Context) {
 
     var floatingButtonOpacityPercent: Int
         get() = prefs.getInt("floating-button-opacity-percent", 80)
-        set(value) { prefs.edit().putInt("floating-button-opacity-percent", value.coerceIn(0, 100)).apply() }
+        set(value) { prefs.edit().putInt("floating-button-opacity-percent", value.coerceIn(10, 100)).apply() }
 
     var floatingButtonSizeDp: Int
         get() = prefs.getInt("floating-button-size-dp", 60)
@@ -635,7 +646,26 @@ class Settings(private val context: Context) {
             prefs.getBoolean("stand-down-station-for-wifi-direct", false) -> 1
             else -> 0
         }
-        set(value) { prefs.edit().putInt("stand-down-station-mode", value).apply() }
+        set(value) {
+            val clears = StationStandDownReassertPolicy.modeChangeClearsVerdict(stationStandDownMode, value)
+            prefs.edit().apply {
+                putInt("stand-down-station-mode", value)
+                if (clears) remove("station-stand-down-contested-fingerprint")
+            }.apply()
+        }
+
+    /**
+     * Build.FINGERPRINT of a ROM that undid every re-assertion of the stand-down, or null.
+     * In force only on that ROM; changing the stand-down mode clears it.
+     */
+    var stationStandDownContestedFingerprint: String?
+        get() = prefs.getString("station-stand-down-contested-fingerprint", null)
+        set(value) {
+            prefs.edit().apply {
+                if (value == null) remove("station-stand-down-contested-fingerprint")
+                else putString("station-stand-down-contested-fingerprint", value)
+            }.apply()
+        }
 
     /**
      * The network id disabled by the WiFi Direct station stand-down, or -1 for none standing.
@@ -1689,6 +1719,15 @@ class Settings(private val context: Context) {
             prefs.edit().putInt("overlay-position", value.value).apply()
         }
 
+    // One bit per overlay line; the default keeps all four.
+    var overlayFields: Set<PerformanceOverlayField>
+        get() = PerformanceOverlayPolicy.fromBits(
+            prefs.getInt("overlay-fields", PerformanceOverlayPolicy.DEFAULT_BITS)
+        )
+        set(value) {
+            prefs.edit().putInt("overlay-fields", PerformanceOverlayPolicy.toBits(value)).apply()
+        }
+
     companion object {
         const val PREFS_NAME = "settings"
 
@@ -2338,6 +2377,11 @@ class Settings(private val context: Context) {
     var connectionIssueStaleEndpointAtEpochMs: Long
         get() = prefs.getLong("connection-issue-stale-endpoint", 0L)
         set(value) = prefs.edit().putLong("connection-issue-stale-endpoint", value).apply()
+
+    /** The platform kept rejoining this unit's WiFi beside the group and the stand-down gave up. */
+    var connectionIssueHomeWifiRejoinedAtEpochMs: Long
+        get() = prefs.getLong("connection-issue-home-wifi-rejoined", 0L)
+        set(value) = prefs.edit().putLong("connection-issue-home-wifi-rejoined", value).apply()
 
     /**
      * When the user last dismissed the failure banner.

@@ -432,6 +432,12 @@
     <string name="monochrome_icons_description">Použít šedé ikony na domovské obrazovce v tmavém nebo extrémně tmavém režimu</string>
     <string name="use_extreme_dark">Použít extrémně tmavý režim</string>
     <string name="use_extreme_dark_description">Použít čistě černé pozadí při aktivním tmavém režimu</string>
+    <string name="performance_overlay_settings">Výkonnostní překryv</string>
+    <string name="overlay_field_fps">FPS</string>
+    <string name="overlay_field_cpu">CPU</string>
+    <string name="overlay_field_temperature">Teplota</string>
+    <string name="overlay_field_frame_age">Stáří snímku</string>
+    <string name="performance_overlay_no_lines">Žádné řádky</string>
     <string name="show_performance_overlay">Zobrazit výkonnostní překryv</string>
     <string name="overlay_position">Umístění výkonnostního překryvu</string>
     <string name="show_performance_overlay_description">Zobrazí snímkovou frekvenci, zatížení procesoru, teplotu a stáří snímku přes projekci.</string>
@@ -1228,6 +1234,7 @@
     <string name="exit_dialog_end_stay_armed_note">Relace ukončena. Síť WiFi zůstává aktivní, takže se váš telefon může znovu připojit sám.</string>
     <string name="connection_issue_banner_stale_endpoint">Váš telefon zkouší starou síťovou adresu této jednotky. Pokud se nepřipojí, zapomeňte tuto jednotku v Android Auto na telefonu a připojte se znovu.</string>
     <string name="connection_issue_banner_hands_free_record_refused">Bluetooth této jednotky odmítl handsfree nastavení, které Android Auto potřebuje, takže se bezdrátové připojení nemusí spustit. Kabel nebo jiný bezdrátový režim ho nepotřebuje.</string>
+    <string name="connection_issue_banner_home_wifi_rejoined">Tato jednotka se během Android Auto stále znovu připojuje k vaší domácí síti WiFi, což může způsobit sekání obrazu, hlavně u jednotek na 2,4 GHz. Klepnutím vypněte automatické připojení k této síti, nebo počkejte, až budete mimo její dosah.</string>
     <string name="native_aa_wake_remeasure">Znovu změřit Bluetooth probuzení</string>
     <string name="native_aa_wake_verdict_unmeasured">Zatím nezměřeno</string>
     <string name="native_aa_wake_verdict_safe">Bezpečné na této jednotce</string>

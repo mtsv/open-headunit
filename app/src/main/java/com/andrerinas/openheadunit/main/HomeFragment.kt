@@ -36,6 +36,7 @@ import com.andrerinas.openheadunit.connection.wifi.modes.helper.NearbyManager
 import com.andrerinas.openheadunit.connection.usb.UsbDeviceCompat
 import com.andrerinas.openheadunit.connection.usb.UsbDeviceDiagnostics
 import android.content.res.Configuration
+import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.zbt.ZbtDaemonReachability
 import com.andrerinas.openheadunit.utils.AppLog
 import com.andrerinas.openheadunit.utils.AppPermissions
 import com.andrerinas.openheadunit.utils.CarLauncherManager
@@ -48,6 +49,9 @@ import com.andrerinas.openheadunit.utils.ColorUtils
 import com.andrerinas.openheadunit.utils.HomeUiHelper
 import com.andrerinas.openheadunit.utils.ToastUtils
 import com.andrerinas.openheadunit.utils.VpnControl
+import com.andrerinas.openheadunit.connection.self.SelfLaunchPath
+import com.andrerinas.openheadunit.connection.self.SelfLaunchRoutePolicy
+import com.andrerinas.openheadunit.connection.self.SelfLauncherManager
 import com.andrerinas.openheadunit.utils.BluetoothHelper
 import com.andrerinas.openheadunit.connection.usb.UsbReceiver
 import com.andrerinas.openheadunit.connection.usb.UsbAccessoryMode
@@ -218,7 +222,10 @@ class HomeFragment : Fragment() {
             connectivityManager.activeNetwork
         } else null
 
-        if (activeNetwork == null && VpnControl.isVpnAvailable()) {
+        val path = SelfLauncherManager.installedPath(requireContext())
+        val offline = activeNetwork == null
+
+        if (SelfLaunchRoutePolicy.needsDummyVpn(path, offline, VpnControl.isVpnAvailable())) {
             AppLog.i("Device is offline. Preparing Dummy VPN for Self Mode.")
             val vpnIntent = VpnControl.consentIntent(requireContext())
             if (vpnIntent != null) {
@@ -228,8 +235,12 @@ class HomeFragment : Fragment() {
                 AppLog.i("VPN permission already granted. Starting VPN service.")
                 VpnControl.startVpn(requireContext());
             }
-        } else if (activeNetwork == null) {
-            AppLog.i("Device is offline and VPN is not available in this build. Self Mode may fail.")
+        } else if (offline) {
+            if (path == SelfLaunchPath.HEADUNIT_SERVER) {
+                AppLog.i("HomeFragment: Device is offline; Android Auto 17.4+ connects over 127.0.0.1:5277, so no dummy VPN.")
+            } else {
+                AppLog.i("Device is offline and VPN is not available in this build. Self Mode may fail.")
+            }
         }
         startSelfModeInternal()
     }
@@ -287,11 +298,11 @@ class HomeFragment : Fragment() {
             Settings.CONNECTION_TYPE_USB -> {
                 val lastUsbDevice = appSettings.lastConnectionUsbDevice
                 if (lastUsbDevice.isNotEmpty()) {
-                    val usbManager = requireContext().getSystemService(Context.USB_SERVICE) as UsbManager
-                    val matchingDevice = usbManager.deviceList.values.find { device ->
+                    val usbManager = UsbDeviceCompat.usbManager(requireContext())
+                    val matchingDevice = usbManager?.deviceList?.values?.find { device ->
                         UsbDeviceCompat.getUniqueName(device) == lastUsbDevice
                     }
-                    if (matchingDevice != null && usbManager.hasPermission(matchingDevice)) {
+                    if (usbManager != null && matchingDevice != null && usbManager.hasPermission(matchingDevice)) {
                         AppLog.i("Auto-connect: Attempting USB connection to $lastUsbDevice")
                         ToastUtils.showToast(requireContext(), getString(R.string.auto_connecting_usb), Toast.LENGTH_SHORT)
                         ContextCompat.startForegroundService(requireContext(), Intent(requireContext(), AapService::class.java).apply {
@@ -433,13 +444,14 @@ class HomeFragment : Fragment() {
             AapService.instance?.liftUsbCancel("the USB button was pressed")
 
             // Get list of Android USB devices
-            val usbManager = requireContext().getSystemService(Context.USB_SERVICE) as UsbManager
-            UsbDeviceDiagnostics.logDeviceList(requireContext(), usbManager, "USB button")
-            val androidDevices = usbManager.deviceList.values
-                .filter { UsbDeviceCompat.isConnectable(requireContext(), it) }
+            val usbManager = UsbDeviceCompat.usbManager(requireContext())
+            val androidDevices = if (usbManager == null) emptyList() else {
+                UsbDeviceDiagnostics.logDeviceList(requireContext(), usbManager, "USB button")
+                usbManager.deviceList.values.filter { UsbDeviceCompat.isConnectable(requireContext(), it) }
+            }
 
             // If exactly one device found - auto-connect
-            if (androidDevices.size == 1) {
+            if (usbManager != null && androidDevices.size == 1) {
                 val device = UsbDeviceCompat(androidDevices[0])
                 AppLog.i("USB button: Single device found - ${device.uniqueName}, auto-connecting")
                 (requireActivity() as? MainActivity)?.beginAutoConnect(
@@ -559,6 +571,10 @@ class HomeFragment : Fragment() {
                         }
                         ContextCompat.startForegroundService(requireContext(), intent)
                     } else if (route == ExternalBtTransportPolicy.WifiButton.REFUSED) {
+                        AppLog.i(
+                            "HomeFragment: WiFi button refused: route=$route, daemon answer=" +
+                                "${ZbtDaemonReachability.cached()} ${ZbtDaemonReachability.answerAgeMs()?.let { it / 1000 }}s old"
+                        )
                         ToastUtils.showToast(requireContext(), getString(R.string.native_aa_poke_not_running), Toast.LENGTH_LONG, force = true)
                     } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                         ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {

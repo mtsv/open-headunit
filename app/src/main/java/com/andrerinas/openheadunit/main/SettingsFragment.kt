@@ -22,7 +22,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import com.andrerinas.openheadunit.utils.OemAppManager
 import com.andrerinas.openheadunit.utils.CarLauncherManager
+import com.andrerinas.openheadunit.ssl.ConscryptInitializer
 import com.andrerinas.openheadunit.utils.UpdateChecker
+import com.andrerinas.openheadunit.utils.UpdateLinkPolicy
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -62,6 +64,8 @@ import com.andrerinas.openheadunit.utils.AppLog
 import com.andrerinas.openheadunit.utils.AppPermissions
 import com.andrerinas.openheadunit.utils.AppThemeManager
 import com.andrerinas.openheadunit.utils.Settings
+import com.andrerinas.openheadunit.view.PerformanceOverlayField
+import com.andrerinas.openheadunit.view.PerformanceOverlayPolicy
 import com.andrerinas.openheadunit.utils.LocaleHelper
 import com.andrerinas.openheadunit.BuildConfig
 import com.andrerinas.openheadunit.utils.LogExporter
@@ -186,8 +190,6 @@ class SettingsFragment : Fragment() {
     private var pendingAudioLatencyMultiplier: Int? = null
     private var pendingUseLibusb: Boolean? = null
     private var pendingAudioQueueCapacity: Int? = null
-    private var pendingShowPerformanceOverlay: Boolean? = null
-    private var pendingOverlayPosition: Settings.OverlayPosition? = null
     private var pendingShowToastMessages: Boolean? = null
     private var pendingScreenOrientation: Settings.ScreenOrientation? = null
     private var pendingAppLanguage: String? = null
@@ -233,6 +235,8 @@ class SettingsFragment : Fragment() {
 
     private var pendingEnableCarLauncher: Boolean? = null
     private var pendingEnableFloatingButton: Boolean? = null
+    private var pendingFloatingButtonConnectionStatusMode: Boolean? = null
+    private var pendingFloatingButtonDisconnectedOpacityPercent: Int? = null
     private var pendingFloatingButtonSizeDp: Int? = null
     private var pendingFloatingButtonOpacityPercent: Int? = null
     private var pendingFloatingButtonXPercent: Int? = null
@@ -367,14 +371,14 @@ class SettingsFragment : Fragment() {
         pendingMediaKeyRouting = settings.mediaKeyRouting
         pendingAudioLatencyMultiplier = settings.audioLatencyMultiplier
         pendingAudioQueueCapacity = settings.audioQueueCapacity
-        pendingShowPerformanceOverlay = settings.showPerformanceOverlay
-        pendingOverlayPosition = settings.overlayPosition
         pendingShowToastMessages = settings.showToastMessages
         pendingScreenOrientation = settings.screenOrientation
         pendingAppLanguage = settings.appLanguage
 
         pendingEnableCarLauncher = settings.enableCarLauncher
         pendingEnableFloatingButton = settings.enableFloatingButton
+        pendingFloatingButtonConnectionStatusMode = settings.floatingButtonConnectionStatusMode
+        pendingFloatingButtonDisconnectedOpacityPercent = settings.floatingButtonDisconnectedOpacityPercent
         pendingFloatingButtonSizeDp = settings.floatingButtonSizeDp
         pendingFloatingButtonOpacityPercent = settings.floatingButtonOpacityPercent
         pendingFloatingButtonXPercent = settings.floatingButtonXPercent
@@ -507,14 +511,14 @@ class SettingsFragment : Fragment() {
         pendingMediaKeyRouting = settings.mediaKeyRouting
         pendingAudioLatencyMultiplier = settings.audioLatencyMultiplier
         pendingAudioQueueCapacity = settings.audioQueueCapacity
-        pendingShowPerformanceOverlay = settings.showPerformanceOverlay
-        pendingOverlayPosition = settings.overlayPosition
         pendingShowToastMessages = settings.showToastMessages
         pendingScreenOrientation = settings.screenOrientation
         pendingAppLanguage = settings.appLanguage
         pendingEnableCarLauncher = settings.enableCarLauncher
         CarLauncherManager.syncWithSettings(requireContext(), settings.enableCarLauncher)
         pendingEnableFloatingButton = settings.enableFloatingButton
+        pendingFloatingButtonConnectionStatusMode = settings.floatingButtonConnectionStatusMode
+        pendingFloatingButtonDisconnectedOpacityPercent = settings.floatingButtonDisconnectedOpacityPercent
         pendingFloatingButtonSizeDp = settings.floatingButtonSizeDp
         pendingFloatingButtonOpacityPercent = settings.floatingButtonOpacityPercent
         pendingFloatingButtonXPercent = settings.floatingButtonXPercent
@@ -741,8 +745,6 @@ class SettingsFragment : Fragment() {
         pendingMediaKeyRouting?.let { settings.mediaKeyRouting = it }
         pendingAudioLatencyMultiplier?.let { settings.audioLatencyMultiplier = it }
         pendingAudioQueueCapacity?.let { settings.audioQueueCapacity = it }
-        pendingShowPerformanceOverlay?.let { settings.showPerformanceOverlay = it }
-        pendingOverlayPosition?.let { settings.overlayPosition = it }
         pendingShowToastMessages?.let { settings.showToastMessages = it }
         pendingScreenOrientation?.let { settings.screenOrientation = it }
 
@@ -760,6 +762,8 @@ class SettingsFragment : Fragment() {
             CarLauncherManager.setLauncherEnabled(requireContext(), it)
         }
         pendingEnableFloatingButton?.let { settings.enableFloatingButton = it }
+        pendingFloatingButtonConnectionStatusMode?.let { settings.floatingButtonConnectionStatusMode = it }
+        pendingFloatingButtonDisconnectedOpacityPercent?.let { settings.floatingButtonDisconnectedOpacityPercent = it }
         pendingFloatingButtonSizeDp?.let { settings.floatingButtonSizeDp = it }
         pendingFloatingButtonOpacityPercent?.let { settings.floatingButtonOpacityPercent = it }
         pendingFloatingButtonXPercent?.let { settings.floatingButtonXPercent = it }
@@ -896,13 +900,13 @@ class SettingsFragment : Fragment() {
                         pendingMediaKeyRouting != settings.mediaKeyRouting ||
                         pendingAudioLatencyMultiplier != settings.audioLatencyMultiplier ||
                         pendingAudioQueueCapacity != settings.audioQueueCapacity ||
-                        pendingShowPerformanceOverlay != settings.showPerformanceOverlay ||
-                        pendingOverlayPosition != settings.overlayPosition ||
                         pendingShowToastMessages != settings.showToastMessages ||
                         pendingScreenOrientation != settings.screenOrientation ||
                         pendingAppLanguage != settings.appLanguage ||
                         pendingEnableCarLauncher != settings.enableCarLauncher ||
                         pendingEnableFloatingButton != settings.enableFloatingButton ||
+                        pendingFloatingButtonConnectionStatusMode != settings.floatingButtonConnectionStatusMode ||
+                        pendingFloatingButtonDisconnectedOpacityPercent != settings.floatingButtonDisconnectedOpacityPercent ||
                         pendingFloatingButtonSizeDp != settings.floatingButtonSizeDp ||
                         pendingFloatingButtonOpacityPercent != settings.floatingButtonOpacityPercent ||
                         pendingFloatingButtonXPercent != settings.floatingButtonXPercent ||
@@ -1883,6 +1887,17 @@ class SettingsFragment : Fragment() {
         ))
 
         if (isFloatingButtonEnabled) {
+            val connectionStatusMode = pendingFloatingButtonConnectionStatusMode ?: settings.floatingButtonConnectionStatusMode
+            items.add(SettingItem.ToggleSettingEntry(
+                stableId = "floatingButtonConnectionStatusMode",
+                nameResId = R.string.pref_floating_button_connection_status_title,
+                descriptionResId = R.string.pref_floating_button_connection_status_summary,
+                isChecked = connectionStatusMode,
+                onCheckedChanged = { isChecked ->
+                    pendingFloatingButtonConnectionStatusMode = isChecked
+                    checkChanges()
+                }
+            ))
             val size = pendingFloatingButtonSizeDp ?: settings.floatingButtonSizeDp
             items.add(SettingItem.SliderSettingEntry(
                 stableId = "floatingButtonSizeDp",
@@ -1912,6 +1927,23 @@ class SettingsFragment : Fragment() {
                     checkChanges()
                 }
             ))
+
+            if (connectionStatusMode) {
+                val disconnectedOpacity = pendingFloatingButtonDisconnectedOpacityPercent ?: settings.floatingButtonDisconnectedOpacityPercent
+                items.add(SettingItem.SliderSettingEntry(
+                    stableId = "floatingButtonDisconnectedOpacityPercent",
+                    nameResId = R.string.pref_floating_button_disconnected_opacity_title,
+                    value = "${disconnectedOpacity}%",
+                    sliderValue = disconnectedOpacity.toFloat(),
+                    valueFrom = 0f,
+                    valueTo = 100f,
+                    stepSize = 5f,
+                    onValueChanged = { newVal ->
+                        pendingFloatingButtonDisconnectedOpacityPercent = newVal.toInt()
+                        checkChanges()
+                    }
+                ))
+            }
 
             val xPos = pendingFloatingButtonXPercent ?: settings.floatingButtonXPercent
             items.add(SettingItem.SliderSettingEntry(
@@ -2759,36 +2791,29 @@ class SettingsFragment : Fragment() {
         // --- Debug Settings ---
         items.add(SettingItem.CategoryHeader("debug", R.string.category_debug))
 
-        items.add(SettingItem.ToggleSettingEntry(
-            stableId = "showPerformanceOverlay",
-            nameResId = R.string.show_performance_overlay,
-            descriptionResId = R.string.show_performance_overlay_description,
-            isChecked = pendingShowPerformanceOverlay ?: settings.showPerformanceOverlay,
-            onCheckedChanged = { isChecked ->
-                pendingShowPerformanceOverlay = isChecked
-                checkChanges()
-                updateSettingsList()
-            }
-        ))
-
-        // The overlay sits in a top corner, and on a panel with an OEM bar that corner is covered.
-        val overlayPositions = arrayOf(getString(R.string.margin_left), getString(R.string.margin_right))
+        val overlayLabels = mapOf(
+            PerformanceOverlayField.FPS to getString(R.string.overlay_field_fps),
+            PerformanceOverlayField.CPU to getString(R.string.overlay_field_cpu),
+            PerformanceOverlayField.TEMP to getString(R.string.overlay_field_temperature),
+            PerformanceOverlayField.FRAME to getString(R.string.overlay_field_frame_age)
+        )
         items.add(SettingItem.SettingEntry(
-            stableId = "overlayPosition",
-            nameResId = R.string.overlay_position,
-            searchKeywords = kw(R.string.margin_left, R.string.margin_right),
-            value = overlayPositions.getOrElse((pendingOverlayPosition ?: settings.overlayPosition).value) { "" },
-            onClick = { _ ->
-                val currentIdx = (pendingOverlayPosition ?: settings.overlayPosition).value
-                MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
-                    .setTitle(R.string.overlay_position)
-                    .setSingleChoiceItems(overlayPositions, currentIdx) { dialog, which ->
-                        Settings.OverlayPosition.fromInt(which)?.let { pendingOverlayPosition = it }
-                        checkChanges()
-                        dialog.dismiss()
-                        updateSettingsList()
-                    }
-                    .show()
+            stableId = "performanceOverlay",
+            nameResId = R.string.performance_overlay_settings,
+            value = PerformanceOverlayPolicy.entrySummary(
+                settings.showPerformanceOverlay,
+                settings.overlayFields,
+                overlayLabels,
+                getString(R.string.appearance_off),
+                getString(R.string.performance_overlay_no_lines),
+                getString(if (settings.overlayPosition == Settings.OverlayPosition.RIGHT) R.string.margin_right else R.string.margin_left).lowercase()
+            ),
+            searchKeywords = kw(
+                R.string.overlay_field_fps, R.string.overlay_field_cpu, R.string.overlay_field_temperature,
+                R.string.overlay_field_frame_age, R.string.overlay_position
+            ),
+            onClick = {
+                findNavController().navigate(R.id.action_settingsFragment_to_performanceOverlaySettingsFragment)
             }
         ))
 
@@ -5309,7 +5334,11 @@ class SettingsFragment : Fragment() {
                             }
                         } else {
                             builder.setPositiveButton(R.string.open_github_releases) { _, _ ->
-                                UpdateChecker.openGitHubReleases(ctx, info.releaseUrl)
+                                val link = UpdateLinkPolicy.linkToOpen(
+                                    info.releaseUrl, info.apkUrl, ConscryptInitializer.isNeededForTls12()
+                                )
+                                AppLog.i("SettingsFragment: opening update link $link")
+                                UpdateChecker.openGitHubReleases(ctx, link)
                             }
                         }
                         builder.show()

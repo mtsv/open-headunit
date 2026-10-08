@@ -433,6 +433,12 @@
     <string name="monochrome_icons_description">Usar iconos en escala de grises en la pantalla principal en modo Oscuro u Oscuro Extremo</string>
     <string name="use_extreme_dark">Usar oscuro extremo</string>
     <string name="use_extreme_dark_description">Usar fondo negro puro cuando el modo oscuro está activo</string>
+    <string name="performance_overlay_settings">Panel de rendimiento</string>
+    <string name="overlay_field_fps">FPS</string>
+    <string name="overlay_field_cpu">CPU</string>
+    <string name="overlay_field_temperature">Temperatura</string>
+    <string name="overlay_field_frame_age">Antigüedad del fotograma</string>
+    <string name="performance_overlay_no_lines">Sin líneas</string>
     <string name="show_performance_overlay">Mostrar panel de rendimiento</string>
     <string name="overlay_position">Posición del panel de rendimiento</string>
     <string name="show_performance_overlay_description">Muestra los FPS, la carga de CPU, la temperatura y la antigüedad del fotograma sobre la proyección.</string>
@@ -1236,6 +1242,7 @@
     <string name="exit_dialog_end_stay_armed_note">Sesión terminada. La red WiFi sigue activa, así que tu teléfono puede reconectarse por sí solo.</string>
     <string name="connection_issue_banner_stale_endpoint">Tu teléfono está probando una dirección de red antigua de esta unidad. Si no se conecta, olvida esta unidad en Android Auto en tu teléfono y conéctate de nuevo.</string>
     <string name="connection_issue_banner_hands_free_record_refused">El Bluetooth de esta unidad rechazó la configuración de manos libres que necesita Android Auto, así que puede que la conexión inalámbrica no se inicie. Un cable u otro modo inalámbrico no lo necesita.</string>
+    <string name="connection_issue_banner_home_wifi_rejoined">Esta unidad sigue volviendo a conectarse al WiFi de tu casa durante Android Auto, lo que puede hacer que la imagen se entrecorte, sobre todo en unidades de 2,4 GHz. Toca para desactivar la reconexión automática a esa red, o espera a estar fuera de su alcance.</string>
     <string name="native_aa_wake_remeasure">Volver a medir el despertar Bluetooth</string>
     <string name="native_aa_wake_verdict_unmeasured">Aún no medido</string>
     <string name="native_aa_wake_verdict_safe">Seguro en esta unidad</string>

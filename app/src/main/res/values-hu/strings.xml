@@ -431,6 +431,12 @@
     <string name="monochrome_icons_description">Szürkeárnyalatos ikonok használata a kezdőképernyőn Sötét vagy Extrém sötét módban</string>
     <string name="use_extreme_dark">Extrém sötét használata</string>
     <string name="use_extreme_dark_description">Tiszta fekete háttér használata sötét módban</string>
+    <string name="performance_overlay_settings">Teljesítményjelző</string>
+    <string name="overlay_field_fps">FPS</string>
+    <string name="overlay_field_cpu">CPU</string>
+    <string name="overlay_field_temperature">Hőmérséklet</string>
+    <string name="overlay_field_frame_age">Képkocka kora</string>
+    <string name="performance_overlay_no_lines">Nincs sor</string>
     <string name="show_performance_overlay">Teljesítményjelző megjelenítése</string>
     <string name="overlay_position">Teljesítményjelző helye</string>
     <string name="overlay_permission_required">Az automatikus indításhoz szükséges a \'Megjelenítés más alkalmazások felett\' engedély</string>
@@ -1224,6 +1230,7 @@
     <string name="exit_dialog_end_stay_armed_note">A munkamenet véget ért. A WiFi hálózat aktív marad, így a telefonja magától újra csatlakozhat.</string>
     <string name="connection_issue_banner_stale_endpoint">A telefon egy régi hálózati címet próbál az egységhez. Ha nem csatlakozik, felejtse el az egységet az Android Autóban a telefonon, majd csatlakozzon újra.</string>
     <string name="connection_issue_banner_hands_free_record_refused">Az egység Bluetooth-ja elutasította az Android Auto által igényelt kihangosító beállítást, így a vezeték nélküli kapcsolat nem biztos, hogy elindul. Egy kábel vagy másik vezeték nélküli mód nem igényli.</string>
+    <string name="connection_issue_banner_home_wifi_rejoined">Az egység az Android Auto alatt újra és újra csatlakozik az otthoni WiFihez, ami akadozóvá teheti a képet, főleg a 2,4 GHz-es egységeken. Érintse meg az adott hálózathoz tartozó automatikus újracsatlakozás kikapcsolásához, vagy várjon, amíg hatókörén kívülre kerül.</string>
     <string name="native_aa_wake_remeasure">Bluetooth-ébresztés újramérése</string>
     <string name="native_aa_wake_verdict_unmeasured">Még nincs megmérve</string>
     <string name="native_aa_wake_verdict_safe">Biztonságos ezen az egységen</string>

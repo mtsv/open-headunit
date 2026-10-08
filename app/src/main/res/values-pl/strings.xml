@@ -430,6 +430,12 @@
     <string name="monochrome_icons_description">Używaj szarych ikon na ekranie głównym w trybie ciemnym lub ekstremalnie ciemnym</string>
     <string name="use_extreme_dark">Użyj ekstremalnie ciemnego</string>
     <string name="use_extreme_dark_description">Używaj czystego czarnego tła gdy tryb ciemny jest aktywny</string>
+    <string name="performance_overlay_settings">Nakładka wydajności</string>
+    <string name="overlay_field_fps">FPS</string>
+    <string name="overlay_field_cpu">CPU</string>
+    <string name="overlay_field_temperature">Temperatura</string>
+    <string name="overlay_field_frame_age">Wiek klatki</string>
+    <string name="performance_overlay_no_lines">Brak wierszy</string>
     <string name="show_performance_overlay">Pokaż nakładkę wydajności</string>
     <string name="overlay_position">Pozycja nakładki wydajności</string>
     <string name="overlay_permission_required">Automatyczne uruchamianie wymaga uprawnienia \'Wyświetlaj nad innymi aplikacjami\'</string>
@@ -1227,6 +1233,7 @@
     <string name="exit_dialog_end_stay_armed_note">Sesja zakończona. Sieć WiFi pozostaje aktywna, więc telefon może połączyć się ponownie sam.</string>
     <string name="connection_issue_banner_stale_endpoint">Telefon próbuje połączyć się ze starym adresem sieciowym tego urządzenia. Jeśli się nie połączy, zapomnij to urządzenie w Android Auto na telefonie i połącz się ponownie.</string>
     <string name="connection_issue_banner_hands_free_record_refused">Bluetooth tego urządzenia odmówił konfiguracji głośnomówiącej wymaganej przez Android Auto, więc połączenie bezprzewodowe może się nie rozpocząć. Kabel lub inny tryb bezprzewodowy tego nie wymaga.</string>
+    <string name="connection_issue_banner_home_wifi_rejoined">To urządzenie podczas Android Auto stale łączy się ponownie z twoim domowym WiFi, co może powodować zacinanie się obrazu, głównie na urządzeniach z 2,4 GHz. Dotknij, aby wyłączyć automatyczne ponowne łączenie z tą siecią, albo poczekaj, aż wyjdziesz poza jej zasięg.</string>
     <string name="native_aa_wake_remeasure">Zmierz ponownie wybudzenie Bluetooth</string>
     <string name="native_aa_wake_verdict_unmeasured">Jeszcze nie zmierzono</string>
     <string name="native_aa_wake_verdict_safe">Bezpieczne na tym urządzeniu</string>

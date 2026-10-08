@@ -438,6 +438,12 @@
     <string name="monochrome_icons_description">Использовать серые значки на главном экране в тёмном или сверхтёмном режиме</string>
     <string name="use_extreme_dark">Использовать сверхтёмный режим</string>
     <string name="use_extreme_dark_description">Использовать чисто чёрный фон при активном тёмном режиме</string>
+    <string name="performance_overlay_settings">Панель производительности</string>
+    <string name="overlay_field_fps">FPS</string>
+    <string name="overlay_field_cpu">CPU</string>
+    <string name="overlay_field_temperature">Температура</string>
+    <string name="overlay_field_frame_age">Возраст кадра</string>
+    <string name="performance_overlay_no_lines">Нет строк</string>
     <string name="show_performance_overlay">Показывать панель производительности</string>
     <string name="overlay_position">Положение панели производительности</string>
     <string name="show_performance_overlay_description">Показывает FPS, загрузку процессора, температуру и возраст кадра поверх проекции.</string>
@@ -1227,6 +1233,7 @@
     <string name="exit_dialog_end_stay_armed_note">Сеанс завершён. Сеть WiFi остаётся включённой, поэтому телефон может подключиться заново сам.</string>
     <string name="connection_issue_banner_stale_endpoint">Телефон пытается подключиться по старому сетевому адресу этого устройства. Если подключение не устанавливается, забудьте это устройство в Android Auto на телефоне и подключитесь снова.</string>
     <string name="connection_issue_banner_hands_free_record_refused">Bluetooth этого устройства отклонил настройку громкой связи, необходимую Android Auto, поэтому беспроводное соединение может не начаться. Кабель или другой беспроводной режим этого не требуют.</string>
+    <string name="connection_issue_banner_home_wifi_rejoined">Это устройство постоянно переподключается к вашему домашнему WiFi во время Android Auto, из-за чего изображение может подтормаживать, особенно на устройствах с 2,4 ГГц. Нажмите, чтобы отключить автоподключение к этой сети, или подождите, пока вы окажетесь вне её зоны действия.</string>
     <string name="native_aa_wake_remeasure">Измерить пробуждение по Bluetooth заново</string>
     <string name="native_aa_wake_verdict_unmeasured">Пока не измерено</string>
     <string name="native_aa_wake_verdict_safe">Безопасно на этом устройстве</string>
