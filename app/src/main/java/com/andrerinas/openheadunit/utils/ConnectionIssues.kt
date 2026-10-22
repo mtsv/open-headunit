@@ -53,6 +53,13 @@ enum class ConnectionIssue {
     WIFI_DIRECT_STACK_CYCLED,
 
     /**
+     * WiFi Direct is wedged and only a WiFi restart frees it, which the banner performs when root or
+     * local ADB allows. Unlike [WIFI_DIRECT_STACK_CYCLED] no other app is involved: see
+     * [com.andrerinas.openheadunit.connection.wifi.direct.P2pStackWedgePolicy].
+     */
+    WIFI_DIRECT_STACK_STUCK,
+
+    /**
      * This unit's WiFi is off, and this Android will not let an app switch it on.
      *
      * Separate from [WIFI_DIRECT_GROUP_REFUSED], which is a radio that was asked and said no: here
@@ -128,7 +135,13 @@ enum class ConnectionIssue {
      * the stand-down gave up, so both share one radio and the picture can stutter. The lever is
      * that network's auto-reconnect, which only Android's WiFi settings reach.
      */
-    HOME_WIFI_REJOINED_BESIDE_GROUP
+    HOME_WIFI_REJOINED_BESIDE_GROUP,
+
+    /**
+     * The phone stayed in accessory mode and answered no handshake after both recovery steps.
+     * Only a replug recovers it now.
+     */
+    STALE_USB_ACCESSORY
 }
 
 /** An issue that is currently true, and when it was last raised. */
@@ -240,6 +253,7 @@ object ConnectionIssues {
                 ConnectionIssue.HOTSPOT_NOT_RUNNING -> settings.connectionIssueHotspotOffAtEpochMs
                 ConnectionIssue.WIFI_DIRECT_GROUP_REFUSED -> settings.connectionIssueWifiDirectRefusedAtEpochMs
                 ConnectionIssue.WIFI_DIRECT_STACK_CYCLED -> settings.connectionIssueWifiDirectCycledAtEpochMs
+                ConnectionIssue.WIFI_DIRECT_STACK_STUCK -> settings.connectionIssueWifiDirectStuckAtEpochMs
                 ConnectionIssue.WIFI_RADIO_OFF -> settings.connectionIssueWifiRadioOffAtEpochMs
                 ConnectionIssue.VIDEO_LINK_TOO_SLOW -> settings.connectionIssueVideoLinkTooSlowAtEpochMs
                 ConnectionIssue.FIVE_GHZ_CHANNEL_REFUSED -> settings.connectionIssueFiveGhzChannelRefusedAtEpochMs
@@ -248,6 +262,7 @@ object ConnectionIssues {
                 ConnectionIssue.HANDS_FREE_RECORD_REFUSED -> settings.connectionIssueHandsFreeRecordRefusedAtEpochMs
                 ConnectionIssue.PHONE_HOLDS_STALE_ENDPOINT -> settings.connectionIssueStaleEndpointAtEpochMs
                 ConnectionIssue.HOME_WIFI_REJOINED_BESIDE_GROUP -> settings.connectionIssueHomeWifiRejoinedAtEpochMs
+                ConnectionIssue.STALE_USB_ACCESSORY -> settings.connectionIssueStaleUsbAccessoryAtEpochMs
             }
         } catch (e: Exception) {
             0L
@@ -262,6 +277,7 @@ object ConnectionIssues {
                     ConnectionIssue.HOTSPOT_NOT_RUNNING -> settings.connectionIssueHotspotOffAtEpochMs = atEpochMs
                     ConnectionIssue.WIFI_DIRECT_GROUP_REFUSED -> settings.connectionIssueWifiDirectRefusedAtEpochMs = atEpochMs
                     ConnectionIssue.WIFI_DIRECT_STACK_CYCLED -> settings.connectionIssueWifiDirectCycledAtEpochMs = atEpochMs
+                    ConnectionIssue.WIFI_DIRECT_STACK_STUCK -> settings.connectionIssueWifiDirectStuckAtEpochMs = atEpochMs
                     ConnectionIssue.WIFI_RADIO_OFF -> settings.connectionIssueWifiRadioOffAtEpochMs = atEpochMs
                     ConnectionIssue.VIDEO_LINK_TOO_SLOW -> settings.connectionIssueVideoLinkTooSlowAtEpochMs = atEpochMs
                     ConnectionIssue.FIVE_GHZ_CHANNEL_REFUSED -> settings.connectionIssueFiveGhzChannelRefusedAtEpochMs = atEpochMs
@@ -270,6 +286,7 @@ object ConnectionIssues {
                     ConnectionIssue.HANDS_FREE_RECORD_REFUSED -> settings.connectionIssueHandsFreeRecordRefusedAtEpochMs = atEpochMs
                     ConnectionIssue.PHONE_HOLDS_STALE_ENDPOINT -> settings.connectionIssueStaleEndpointAtEpochMs = atEpochMs
                     ConnectionIssue.HOME_WIFI_REJOINED_BESIDE_GROUP -> settings.connectionIssueHomeWifiRejoinedAtEpochMs = atEpochMs
+                    ConnectionIssue.STALE_USB_ACCESSORY -> settings.connectionIssueStaleUsbAccessoryAtEpochMs = atEpochMs
                 }
             } catch (e: Exception) {
                 AppLog.d("ConnectionIssues: could not record $issue: ${e.message}")

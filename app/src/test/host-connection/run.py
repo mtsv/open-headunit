@@ -7,7 +7,7 @@ codecs, and Handler scheduling are not device simulations. Methods are extracted
 production so the tests exercise the whole entry/teardown paths, not copies of guards.
 """
 from pathlib import Path
-import os, subprocess, sys, hashlib, json, shutil
+import os, re, subprocess, sys, hashlib, json, shutil
 ROOT=Path(sys.argv[1]).resolve() if len(sys.argv)>1 else Path(__file__).resolve().parents[4]
 if not (ROOT/'app/src/main/java').is_dir():
     raise SystemExit('Pass the extracted source/ directory as the first argument.')
@@ -38,7 +38,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.util.concurrent.*
 
-enum class DisconnectReason { CONNECTION_ENDED, SETTINGS_RESTART }
+enum class DisconnectReason { CONNECTION_ENDED, SETTINGS_RESTART, PROJECTION_UNRAISED }
 sealed class ConnectionState {
  class Disconnected(val isClean:Boolean=false,val isUserExit:Boolean=false, val reason:DisconnectReason=DisconnectReason.CONNECTION_ENDED, val restartEndpoint:Pair<String,Int>?=null):ConnectionState()
  object Connecting:ConnectionState();object Connected:ConnectionState();object StartingTransport:ConnectionState()
@@ -58,6 +58,7 @@ class CommManager {
  private var usbRecoveryOwner:Any=Any()
  fun recoveryOwner()=usbRecoveryOwner
  private var settingsUsbRestartInFlight:ConnectionState.Disconnected?=null
+ private var usbSaveOwner:ConnectionState.Disconnected?=null
  private var physicalConnectionReached=true
  private var outgoingEndpoint:Pair<String,Int>?=null
  @Volatile private var _transport:AapTransport?=null
@@ -69,11 +70,13 @@ class CommManager {
  private fun newDisconnectScope()=CoroutineScope(SupervisorJob()+queue)
  private val _connectionState=MutableStateFlow<ConnectionState>(ConnectionState.Connected)
  @Volatile private var _disconnectJob:Job?=null
- private var onAaMediaMetadata:((Any)->Unit)?=null
- private var onAaPlaybackStatus:((Any)->Unit)?=null
+ private var onAaMediaMetadata:((Any,Any)->Unit)?=null
+ private var onAaPlaybackStatus:((Any,Any)->Unit)?=null
+ private var onAaPresentationClosed:((Any)->Unit)?=null
  private var onAudioFocusStateChanged:((Boolean)->Unit)?=null
  private var onUpdateUiConfigReplyReceived:(()->Unit)?=null
  private var onSessionFailure:((String)->Unit)?={failures.add(it)}
+ private var onUsbHandshakeEnded:((AapTransport.HandshakeFailure)->Unit)?=null
  val failures=mutableListOf<String>()
  private var sessionReachedHandshake=false
  private var silentPeerFailures=0
@@ -81,9 +84,10 @@ class CommManager {
  private val keyStates=mutableMapOf<Int,Int>()
  private var btMediaLinkCached:Boolean?=null
  private var btMediaLinkCheckedAt:Long?=null
+ private fun dropOwedScans(){}
  private fun noteHandshakeOutcome(silent:Boolean){}
  private fun settleSessionClaim(formed:Boolean){}
- private fun noteSessionEnded(renderedAnyFrame:Boolean, settingsRestart:Boolean=false){}
+ private fun noteSessionEnded(renderedAnyFrame:Boolean, deliberateEnd:Boolean=false){}
  val connectionState get()=_connectionState
  val state get()=_connectionState.value
  fun owner()=checkNotNull(_transport)
@@ -107,6 +111,7 @@ manager_head=manager_head.replace(old_state, extract(comm, 'class Disconnected('
 for name in ['SettingsRestartRecovery.kt', 'SameEndpointConnectPolicy.kt']:
     source=(base/'connection'/name).read_text().replace('package com.andrerinas.openheadunit.connection', 'package lifecycle')
     (OUT/name).write_text(source)
+(OUT/'AaPresentationSession.kt').write_text((base/'aap/AaPresentationSession.kt').read_text().replace('package com.andrerinas.openheadunit.aap', 'package lifecycle'))
 (OUT/'FinalMessageDelivery.kt').write_text((base/'aap/FinalMessageDelivery.kt').read_text().replace('package com.andrerinas.openheadunit.aap', 'package lifecycle'))
 # These endpoint predicates must be the real ones when testing the terminal route snapshot.
 for declaration in ['val isWirelessSession:', 'val isLoopbackSession:']:
@@ -114,16 +119,18 @@ for declaration in ['val isWirelessSession:', 'val isLoopbackSession:']:
     manager_head += comm[start:comm.index('\n\n', start)] + '\n'
 manager=manager_head+'\n'.join(extract(comm,n) for n in [
  'suspend fun startHandshake()', 'private inline fun withLiveTransport(', 'suspend fun startReading()',
- 'private fun transportedQuited(', 'fun applyAudioSettings()', 'fun disconnect(', 'fun cancelPendingSettingsRestart()', 'private fun doDisconnect(',
+ 'private fun reachedSsl()', 'private fun transportedQuited(', 'fun applyAudioSettings()', 'fun disconnect(', 'fun cancelPendingSettingsRestart()', 'private fun doDisconnect(',
  'private suspend fun connectIp(', 'private suspend fun connectUsb(', 'fun disconnectForLinkLoss(', 'fun destroy()'
 ])+'\n}\n'
 transport_head=r'''
 class AapTransport(
  audioDecoder:AudioDecoder,private val videoDecoder:VideoDecoder,manager:AudioManager,settings:Settings,
  notification:Any,context:Context,externalSsl:Ssl,
- onAaMediaMetadata:((Any)->Unit)?,onAaPlaybackStatus:((Any)->Unit)?
+ onAaMediaMetadata:((Any,Any)->Unit)?,onAaPlaybackStatus:((Any,Any)->Unit)?,
+ private val onAaPresentationClosed:((Any)->Unit)?
 ){
  private val lifecycleLock=Any()
+ private val presentationSession=AaPresentationSession()
  @Volatile private var closing=false
  private var handshakeStarted=false
  private val handshakeFinished=CountDownLatch(1)
@@ -181,7 +188,7 @@ class AapTransport(
   return !conn.closed
  }
  private val micRecorder=Unit; private val settings=Settings();private val context=Context()
- private val onAaMediaMetadata:((Any)->Unit)?=null;private val onAaPlaybackStatus:((Any)->Unit)?=null
+ private val onAaMediaMetadata:((Any,Any)->Unit)?=null;private val onAaPlaybackStatus:((Any,Any)->Unit)?=null
  fun installReader(reader:AapRead){aapRead=reader}
  fun postPoll(task:()->Unit){check(checkNotNull(pollHandler).post(Runnable{task()}))}
  fun pollSnapshot()=checkNotNull(pollThread)
@@ -193,7 +200,7 @@ callback_end=transport.index("    init {",callback_start)
 transport_head=transport_head.replace("// CALLBACK MEMBERS",transport[callback_start:callback_end])
 transport_head=transport_head.replace("// CALLBACK PUBLICATION",member(transport[callback_end:],"synchronized(videoDecoder)"))
 transport_fixture=transport_head+'\n'.join(extract(transport,n) for n in [
- 'internal fun startHandshake(connection:', 'internal fun startReading()', 'internal fun stop(', 'internal fun quit(',
+ 'internal fun retirePresentation()', 'internal fun startHandshake(connection:', 'internal fun startReading()', 'internal fun stop(', 'internal fun quit(',
  'private fun resetSessionObservations()', 'internal fun awaitTermination()', 'private inline fun awaitUninterruptibly(', 'private inline fun cleanupStep('
 ])+'\n}\n'
 bulk=(base/'aap/AapReadMultipleMessages.kt').read_text()
@@ -219,9 +226,9 @@ class AapAudio(decoder:AudioDecoder,private val settings:Settings){
 class AudioConfig{val enabled=true;val staticFocus=false;val focusMode=0}
 class VideoDecoder{var framesRenderedThisSession=0L;var onDecoderError:((String)->Unit)?=null;var onKeyframeStarved:(()->Unit)?=null;var onFrameDropped:(()->Unit)?=null;var onKeyframeObserved:(()->Unit)?=null;fun stop(s:String){}}
 class AapVideo{fun release(){}}
-open class AapRead{@Volatile protected var isStopped=false;fun stop(){isStopped=true};companion object{var creations=0};object Factory{
+open class AapRead{@Volatile protected var isStopped=false;fun stop(){isStopped=true;retirePresentation()};var onRetirePresentation:(()->Unit)?=null;fun retirePresentation(){onRetirePresentation?.invoke()};companion object{var creations=0};object Factory{
  fun create(connection:ProjectionConnection,transport:AapTransport,mic:Any,audio:AapAudio,video:AapVideo,
- settings:Settings,context:Context,metadata:((Any)->Unit)?,playback:((Any)->Unit)?):AapRead{creations++;return AapRead()}
+ settings:Settings,context:Context,metadata:((Any,Any)->Unit)?,playback:((Any,Any)->Unit)?,closed:((Any)->Unit)?,session:AaPresentationSession):AapRead{creations++;return AapRead()}
 }}
 open class ProjectionConnection{@Volatile var closed=false;open fun connect()=true;open fun disconnect(){closed=true}}
 class SocketProjectionConnection(private val ip:String,port:Int,context:Context):ProjectionConnection(){
@@ -491,9 +498,33 @@ fun main(){
  workerQuitBulkTail()
  lateRegisteredResults();destroyAfterCandidateRegistration();destroyDuringCandidateConstruction();
  usbOpenCancellation()
+ presentationRetirementBoundary()
  println("ALL EXTENDED TRANSPORT LIFECYCLE CHECKS PASSED")
 }
 '''.replace('// BULK METHOD',process)
+extra += r'''
+fun presentationRetirementBoundary()=runBlocking {
+ for(route in listOf("disconnect","transport","link-loss","destroy")) {
+  val c=CommManager();c.startHandshake();val old=c.owner()
+  val states=mutableListOf<Boolean>()
+  old.installReader(AapRead().apply { onRetirePresentation={states.add(c.state is ConnectionState.Disconnected)} })
+  when(route) {
+   "disconnect" -> c.disconnect(isUserExit=false,honorKillOnDisconnect=false)
+   "transport" -> checkNotNull(old.onQuit).invoke(false)
+   "link-loss" -> c.disconnectForLinkLoss(1)
+   "destroy" -> c.destroy()
+  }
+  check(states.isNotEmpty() && !states.first()) {"presentation retired after Disconnected: $route $states"}
+  c.cleanups();c.close()
+ }
+ val c=CommManager();c.startHandshake();val old=c.owner()
+ val creations=AapRead.creations
+ old.retirePresentation();old.startReading()
+ check(AapRead.creations==creations){"retired presentation created a new reader before quit"}
+ c.close()
+ println("PASS presentation retirement precedes all disconnect publications and prevents late reader creation")
+}
+'''
 extra += r'''
 fun lateRegisteredResults()=runBlocking {
  for (outcome in listOf("success","false","throw")) for(replace in listOf(false,true)) {
@@ -553,6 +584,8 @@ fun destroyDuringCandidateConstruction()=runBlocking {
 extra += r'''
 object UsbDeviceCompat{fun getUniqueName(d:UsbDevice)="usb-fixture";fun usbManager(c:Context)=c.getSystemService(Context.USB_SERVICE) as UsbManager}
 object UsbBridge{ @Volatile var afterConnect:(()->Unit)?=null;var forcedOpen:(()->Boolean)?=null }
+// The production USB check has to match the fixture's USB double.
+typealias AbstractUsbProjectionConnection=StandardUsbProjectionConnection
 open class StandardUsbProjectionConnection(m:UsbManager,d:UsbDevice):ProjectionConnection(){
  private val actual=com.andrerinas.openheadunit.connection.projection.StandardUsbProjectionConnection(m,d)
  override fun connect():Boolean {UsbBridge.forcedOpen?.let{return it()};val r=runBlocking{actual.connect()};UsbBridge.afterConnect?.invoke();return r}
@@ -756,7 +789,7 @@ class Context{
 ''')
 (OUT/'App.kt').write_text('package android.app\nobject Application{const val AUDIO_SERVICE="audio"}\nclass ActivityManager{val appTasks=emptyList<AppTask>();class AppTask{fun finishAndRemoveTask(){}}}\n')
 (OUT/'Media.kt').write_text('package android.media\nclass AudioManager{fun interface OnAudioFocusChangeListener{fun onAudioFocusChange(i:Int)};companion object{const val STREAM_MUSIC=3;const val AUDIOFOCUS_GAIN=1}}\n')
-(OUT/'Service.kt').write_text('package com.andrerinas.openheadunit.aap\nclass AapService{companion object{const val ACTION_STOP_SERVICE="stop";var killProcessOnDestroy=false}}\n')
+(OUT/'Service.kt').write_text('package com.andrerinas.openheadunit.aap\nclass AapService{companion object{const val ACTION_STOP_SERVICE="stop";var killProcessOnDestroy=false;var destroyIsUserStop=false}}\n')
 (OUT/'Proto.kt').write_text(r'''package com.andrerinas.openheadunit.aap.protocol.proto
 object Control{
  enum class ByeByeReason{USER_SELECTION}
@@ -773,7 +806,7 @@ for name in ['ProjectionConnection.kt','AbstractUsbProjectionConnection.kt','Sta
 import java.util.concurrent.atomic.AtomicInteger
 class UsbDevice{val interfaceCount=1;fun getInterface(i:Int)=UsbInterface()}
 class UsbInterface
-class UsbEndpoint
+class UsbEndpoint{val maxPacketSize=64}
 class UsbManager{var openHook:((UsbDevice)->UsbDeviceConnection?)?=null;var permitted=true;fun hasPermission(d:UsbDevice)=permitted;fun openDevice(d:UsbDevice)=openHook?.invoke(d)?:UsbDeviceConnection()}
 class UsbDeviceConnection{
  val closes=AtomicInteger();val releases=AtomicInteger()
@@ -799,23 +832,26 @@ def cached(group,artifact,version="*"):
     found=sorted((cache/group/artifact).glob(version+"/*/*.jar"))
     if not found: raise FileNotFoundError(artifact)
     return found[0]
+# The build's Kotlin version, so the harness compiles with the jars Gradle already cached.
+KOTLIN=re.search(r'kotlin-gradle-plugin:([0-9.]+)',(ROOT/"build.gradle.kts").read_text()).group(1)
+COROUTINES="1.8.0"  # what kotlin-compiler-embeddable 2.4.x depends on, so Gradle caches it too
 try:
-    stdlib=cached("org.jetbrains.kotlin","kotlin-stdlib","1.9.22")
+    stdlib=cached("org.jetbrains.kotlin","kotlin-stdlib",KOTLIN)
     annotations=cached("org.jetbrains","annotations","13.0")
-    compile_jars=[cached("org.jetbrains.kotlin","kotlin-compiler-embeddable","1.9.22"),stdlib,
+    coroutines=cached("org.jetbrains.kotlinx","kotlinx-coroutines-core-jvm",COROUTINES)
+    compile_jars=[cached("org.jetbrains.kotlin","kotlin-compiler-embeddable",KOTLIN),stdlib,
         cached("org.jetbrains.kotlin","kotlin-reflect","1.6.10"),
-        cached("org.jetbrains.kotlin","kotlin-script-runtime","1.9.22"),
-        cached("org.jetbrains.intellij.deps","trove4j"),annotations]
-    runtime_jars=[stdlib,cached("org.jetbrains.kotlinx","kotlinx-coroutines-core-jvm","1.7.3"),annotations]
-    toolchain="Gradle cache: Kotlin 1.9.22 / kotlinx-coroutines 1.7.3"
+        cached("org.jetbrains.kotlin","kotlin-script-runtime",KOTLIN),coroutines,annotations]
+    runtime_jars=[stdlib,coroutines,annotations]
+    toolchain="Gradle cache: Kotlin "+KOTLIN+" / kotlinx-coroutines "+COROUTINES
 except FileNotFoundError:
     home=os.environ.get("KOTLIN_HOME")
     executable=shutil.which("kotlinc")
     if not home and not executable:
-        raise SystemExit("Run Gradle tests to cache Kotlin 1.9.22, or set KOTLIN_HOME to a Kotlin distribution.")
+        raise SystemExit("Run Gradle tests to cache Kotlin "+KOTLIN+", or set KOTLIN_HOME to a Kotlin distribution.")
     lib=(Path(home) if home else Path(executable).resolve().parents[1])/"lib"
     compile_jars=[lib/f for f in ["kotlin-compiler.jar","kotlin-stdlib.jar","kotlin-reflect.jar",
-        "kotlin-script-runtime.jar","trove4j.jar","annotations-13.0.jar"]]
+        "kotlin-script-runtime.jar","kotlinx-coroutines-core-jvm.jar","annotations-13.0.jar"]]
     runtime_jars=[lib/f for f in ["kotlin-stdlib.jar","kotlinx-coroutines-core-jvm.jar","annotations-13.0.jar"]]
     toolchain="Installed Kotlin distribution: "+str(lib.parent)
     for jar in compile_jars+runtime_jars:

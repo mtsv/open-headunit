@@ -9,6 +9,7 @@ import android.hardware.usb.UsbDevice
 import android.location.Location
 import android.media.AudioManager
 import android.os.Build
+import com.andrerinas.openheadunit.input.KeyCode
 import com.andrerinas.openheadunit.input.MediaKeyRoutingPolicy
 import com.andrerinas.openheadunit.view.PerformanceOverlayField
 import com.andrerinas.openheadunit.view.PerformanceOverlayPolicy
@@ -70,6 +71,10 @@ class Settings(private val context: Context) {
         get() = prefs.getString("bt-address", "")!!
             .let { if (BluetoothAddressSeedPolicy.isLegacyDefault(it)) "" else it }
         set(value) = prefs.edit().putString("bt-address", value).apply()
+
+    var bluetoothAnnounceMode: String?
+        get() = prefs.getString("bt-announce", null)
+        set(value) = prefs.edit().putString("bt-announce", value).apply()
 
     var lastKnownLocation: Location
         get() {
@@ -278,8 +283,7 @@ class Settings(private val context: Context) {
     var nightMode: NightMode
         get() {
             val value = prefs.getInt("night-mode", 0)
-            val mode = NightMode.fromInt(value)
-            return mode!!
+            return NightMode.fromInt(value) ?: NightMode.AUTO
         }
         set(nightMode) {
             prefs.edit().putInt("night-mode", nightMode.value).apply()
@@ -305,7 +309,9 @@ class Settings(private val context: Context) {
                 val codes = it.split("-")
                 map[codes[0].toInt()] = codes[1].toInt()
             }
-            return map
+            val migrated = KeyCode.migrateLegacyNightKey(map)
+            if (migrated != map) keyCodes = migrated.toMutableMap()
+            return migrated.toMutableMap()
         }
         set(codesMap) {
             val list: List<String> = codesMap.map { "${it.key}-${it.value}" }
@@ -381,6 +387,16 @@ class Settings(private val context: Context) {
             prefs.edit().putInt("dpi-pixel-density", value).apply()
         }
 
+    /** The DPI screen's "Use anyway": send a stored DPI above the canvas floor (HUIG or portrait) as is. */
+    var dpiFloorOverride: Boolean
+        get() = prefs.getBoolean("dpi-floor-override", false)
+        set(value) { prefs.edit().putBoolean("dpi-floor-override", value).apply() }
+
+    /** The wizard's screen size, a [SystemOptimizer.DisplaySizePreset] name; null until picked. */
+    var displaySizePreset: String?
+        get() = prefs.getString("display-size-preset", null)
+        set(value) { prefs.edit().putString("display-size-preset", value).apply() }
+
     var pixelAspectRatioE4: Int
         get() = prefs.getInt("pixel-aspect-ratio-e4", 10000) // Default 10000 = 1.0 (square pixels)
         set(value) {
@@ -404,6 +420,30 @@ class Settings(private val context: Context) {
         set(value) {
             prefs.edit().putString("static-p2p-bssid", value).apply()
         }
+
+    /**
+     * Restart WiFi by itself when the WiFi Direct stack wedges, through root or local ADB. Off by
+     * default: it switches WiFi off for every app on the unit, so it is the user's call. See
+     * [com.andrerinas.openheadunit.connection.wifi.direct.P2pStackWedgePolicy].
+     */
+    var autoRestartWifiWhenP2pStuck: Boolean
+        get() = prefs.getBoolean("auto-restart-wifi-p2p-stuck", false)
+        set(value) = prefs.edit().putBoolean("auto-restart-wifi-p2p-stuck", value).apply()
+
+    /**
+     * Whether root was granted when the user switched [autoRestartWifiWhenP2pStuck] on. A fresh
+     * process cannot know this until it opens a shell, and opening one raises the superuser prompt
+     * when there is no saved grant, so a restart only asks for root when this says the user already
+     * answered yes. Otherwise no prompt ever appears unprompted, at launch or on the road.
+     */
+    var wifiRestartRootGranted: Boolean
+        get() = prefs.getBoolean("wifi-restart-root-granted", false)
+        set(value) = prefs.edit().putBoolean("wifi-restart-root-granted", value).apply()
+
+    /** Whether a real local ADB command ran when the switch was turned on. Automatic restarts need it. */
+    var wifiRestartAdbVerified: Boolean
+        get() = prefs.getBoolean("wifi-restart-adb-verified", false)
+        set(value) = prefs.edit().putBoolean("wifi-restart-adb-verified", value).apply()
 
     var fakeSpeed: Boolean
         get() = prefs.getBoolean("fake_speed", true)
@@ -578,7 +618,29 @@ class Settings(private val context: Context) {
             prefs.edit().putInt("wifi-direct-band", migrated).apply()
             return migrated
         }
-        set(value) = prefs.edit().putInt("wifi-direct-band", value).apply()
+        set(value) {
+            // A new choice is a new question: the remembered refusal below answered the old one.
+            prefs.edit()
+                .putInt("wifi-direct-band", value)
+                .remove(KEY_WIFI_DIRECT_BANDED_REFUSED_ON)
+                .apply()
+        }
+
+    /**
+     * The build fingerprint on which this unit refused every banded Native AA group request and
+     * then hosted the no-band group, or null. While it matches the running build, AUTO skips the
+     * banded ladder. See
+     * [com.andrerinas.openheadunit.connection.wifi.direct.NativeGroupBandPolicy.skipsBandedRequest].
+     */
+    var wifiDirectBandedRefusedOn: String?
+        get() = prefs.getString(KEY_WIFI_DIRECT_BANDED_REFUSED_ON, null)
+        set(value) {
+            val editor = prefs.edit()
+            if (value.isNullOrEmpty()) editor.remove(KEY_WIFI_DIRECT_BANDED_REFUSED_ON)
+            else editor.putString(KEY_WIFI_DIRECT_BANDED_REFUSED_ON, value)
+            // commit(), not apply(): written once per firmware, and a force-stop must not lose it.
+            editor.commit()
+        }
 
     /**
      * Which 5 GHz channel to ask for, on whichever transport is hosting the network.
@@ -815,6 +877,21 @@ class Settings(private val context: Context) {
                 .apply()
         }
 
+    /** The WiFi Direct group's IP as last read on a create, graded by SoftApEndpointStabilityPolicy. */
+    var wifiDirectAddressRecord: SoftApAddressRecord?
+        get() {
+            val ip = prefs.getString("wifi-direct-last-ip", null) ?: return null
+            val digest = prefs.getString("wifi-direct-last-ip-psk-digest", null) ?: return null
+            return SoftApAddressRecord(ip, digest, null, prefs.getBoolean("wifi-direct-ip-repeated", false))
+        }
+        set(value) {
+            prefs.edit()
+                .putString("wifi-direct-last-ip", value?.ip)
+                .putString("wifi-direct-last-ip-psk-digest", value?.passphraseDigest)
+                .putBoolean("wifi-direct-ip-repeated", value?.spannedBoot ?: false)
+                .apply()
+        }
+
     /** The access point a WPP endpoint last went out on, so a bring-up that moved it can say so. */
     var softApAdvertisedEndpoint: SoftApAdvertisedEndpoint?
         get() {
@@ -830,6 +907,24 @@ class Settings(private val context: Context) {
                 .putString("soft-ap-advertised-psk-digest", value?.passphraseDigest)
                 .putString("soft-ap-advertised-bssid", value?.bssid)
                 .putString("soft-ap-advertised-ip", value?.ip)
+                .apply()
+        }
+
+    /** The WiFi Direct group an endpoint last went out on, kept apart from the identity retirement clears. */
+    var wifiDirectAdvertisedEndpoint: SoftApAdvertisedEndpoint?
+        get() {
+            val ssid = prefs.getString("wifi-direct-advertised-endpoint-ssid", null) ?: return null
+            val digest = prefs.getString("wifi-direct-advertised-endpoint-psk-digest", null) ?: return null
+            val bssid = prefs.getString("wifi-direct-advertised-endpoint-bssid", null) ?: return null
+            val ip = prefs.getString("wifi-direct-advertised-endpoint-ip", null) ?: return null
+            return SoftApAdvertisedEndpoint(ssid, digest, bssid, ip)
+        }
+        set(value) {
+            prefs.edit()
+                .putString("wifi-direct-advertised-endpoint-ssid", value?.ssid)
+                .putString("wifi-direct-advertised-endpoint-psk-digest", value?.passphraseDigest)
+                .putString("wifi-direct-advertised-endpoint-bssid", value?.bssid)
+                .putString("wifi-direct-advertised-endpoint-ip", value?.ip)
                 .apply()
         }
 
@@ -1621,7 +1716,8 @@ class Settings(private val context: Context) {
         LIGHT_SENSOR(4),
         SCREEN_BRIGHTNESS(5),
         CAR_SIGNAL(6),
-        LOCATION(7);
+        LOCATION(7),
+        SYSTEM(8);
 
         companion object {
             private val map = NightMode.values().associateBy(NightMode::value)
@@ -1752,6 +1848,7 @@ class Settings(private val context: Context) {
         const val KEY_ASSISTANT_VOLUME_OFFSET = "assistant-volume-offset"
         const val KEY_NAVIGATION_VOLUME_OFFSET = "navigation-volume-offset"
         const val KEY_ENABLE_CAR_LAUNCHER = "enable-car-launcher"
+        const val KEY_WIFI_DIRECT_BANDED_REFUSED_ON = "wifi-direct-banded-refused-on"
 
         const val AUTO_CONNECT_LAST_SESSION = "last-session"
         const val AUTO_CONNECT_SELF_MODE = "self-mode"
@@ -2263,16 +2360,6 @@ class Settings(private val context: Context) {
         get() = NativeStrategy.byIdOrDefault(prefs.getInt("native-ap-transport", -1))
         set(value) = prefs.edit().putInt("native-ap-transport", value.id).apply()
 
-    // Whether ServiceDiscoveryResponse carries a ConnectionConfiguration: the ping and TCP
-    // parameters Android Auto lets a head unit ask for.
-    //
-    // Off by default. It is aimed at the link outages that kill a session mid-drive, where the
-    // protocol's own 3 s ping timeout fires long before the link is actually gone, but whether the
-    // phone honours any of it is unmeasured. See ConnectionConfigPolicy for the values.
-    var announceConnectionConfiguration: Boolean
-        get() = prefs.getBoolean("announce-connection-configuration", false)
-        set(value) = prefs.edit().putBoolean("announce-connection-configuration", value).apply()
-
     var nativeDriverSelectionMode: NativeDriverSelectionPolicy.Mode
         get() = NativeDriverSelectionPolicy.Mode.fromId(
             prefs.getInt("native-driver-selection-mode", NativeDriverSelectionPolicy.Mode.AUTO.id)
@@ -2345,6 +2432,10 @@ class Settings(private val context: Context) {
         get() = prefs.getLong("connection-issue-p2p-cycled", 0L)
         set(value) = prefs.edit().putLong("connection-issue-p2p-cycled", value).apply()
 
+    var connectionIssueWifiDirectStuckAtEpochMs: Long
+        get() = prefs.getLong("connection-issue-p2p-stuck", 0L)
+        set(value) = prefs.edit().putLong("connection-issue-p2p-stuck", value).apply()
+
     /** This unit's WiFi was off and this Android would not let the app switch it on. */
     var connectionIssueWifiRadioOffAtEpochMs: Long
         get() = prefs.getLong("connection-issue-wifi-radio-off", 0L)
@@ -2383,6 +2474,10 @@ class Settings(private val context: Context) {
     var connectionIssueHomeWifiRejoinedAtEpochMs: Long
         get() = prefs.getLong("connection-issue-home-wifi-rejoined", 0L)
         set(value) = prefs.edit().putLong("connection-issue-home-wifi-rejoined", value).apply()
+
+    var connectionIssueStaleUsbAccessoryAtEpochMs: Long
+        get() = prefs.getLong("connection-issue-stale-usb-accessory", 0L)
+        set(value) = prefs.edit().putLong("connection-issue-stale-usb-accessory", value).apply()
 
     /**
      * When the user last dismissed the failure banner.

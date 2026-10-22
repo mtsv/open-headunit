@@ -1,12 +1,10 @@
-import org.jetbrains.kotlin.config.KotlinCompilerVersion
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
     kotlin("android")
-    kotlin("kapt")
 }
 
 android {
@@ -98,8 +96,8 @@ android {
         applicationId = "com.andrerinas.headunitrevived"
         minSdk = 16
         targetSdk = 36
-        versionCode = 117
-        versionName = "3.5.0-beta4"
+        versionCode = 120
+        versionName = "4.0.0-alpha"
         setProperty("archivesBaseName", "${applicationId}_${versionName}")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled = true
@@ -210,17 +208,22 @@ android {
     lint {
         abortOnError = false
         disable += "PackagedPrivateKey"
+
+        // All three come from androidx.fragment's UnsafeFragmentLifecycleObserverDetector, which
+        // walks a Fragment's call graph from its lifecycle methods with no depth limit in 1.6.2,
+        // the newest version this module can use (1.7.x, 1.8.x and 1.9.x need minSdk 19, 21 and
+        // 23). On HomeFragment that walk does not finish, so lint never produces a report. The
+        // first fragment release with a depth cap is 1.9.0 and it also needs minSdk 23, so these
+        // stay off while the app keeps minSdk 16. They report nothing today; every Fragment here
+        // already passes viewLifecycleOwner.
+        disable += "FragmentLiveDataObserve"
+        disable += "FragmentBackPressedCallback"
+        disable += "FragmentAddMenuProvider"
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        (this as KotlinJvmOptions).let {
-            it.jvmTarget = "1.8"
-        }
     }
 
     applicationVariants.all {
@@ -254,7 +257,6 @@ dependencies {
     implementation("com.google.android.gms:play-services-nearby:19.3.0")
     // ViewModel and LiveData
     implementation("androidx.lifecycle:lifecycle-extensions:2.2.0")
-    kapt("androidx.lifecycle:lifecycle-compiler:2.6.2")
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.activity:activity-ktx:1.8.2")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
@@ -264,7 +266,6 @@ dependencies {
     // Inline mocks exercise the final Android transport classes on JDK 21.
     testImplementation("org.mockito:mockito-core:5.14.2")
 
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0")
     implementation(project(":contract"))
 
     // Multidex
@@ -279,12 +280,18 @@ dependencies {
 
     // Glide for image/GIF loading (custom loading screen)
     implementation("com.github.bumptech.glide:glide:4.16.0")
-    kapt("com.github.bumptech.glide:compiler:4.16.0")
 
     // ZXing for QR Code generation
     implementation("com.google.zxing:core:3.5.3")
 
     // Shizuku for root / shell access
     implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
     implementation("com.github.topjohnwu.libsu:core:6.0.0")
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_1_8)
+    }
 }

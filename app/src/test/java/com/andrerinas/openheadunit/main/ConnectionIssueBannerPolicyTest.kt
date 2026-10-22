@@ -150,7 +150,7 @@ class ConnectionIssueBannerPolicyTest {
         for (transport in NativeTransport.values()) {
             assertEquals(
                 transport.name,
-                setOf(ConnectionIssue.HEADUNIT_SERVER_NOT_ANSWERING),
+                setOf(ConnectionIssue.HEADUNIT_SERVER_NOT_ANSWERING, ConnectionIssue.STALE_USB_ACCESSORY),
                 ConnectionIssueBannerPolicy.relevantNow(3, transport, wirelessSelected = false)
             )
         }
@@ -164,7 +164,7 @@ class ConnectionIssueBannerPolicyTest {
             for (transport in NativeTransport.values()) {
                 assertEquals(
                     "mode=$mode transport=$transport",
-                    setOf(ConnectionIssue.HEADUNIT_SERVER_NOT_ANSWERING),
+                    setOf(ConnectionIssue.HEADUNIT_SERVER_NOT_ANSWERING, ConnectionIssue.STALE_USB_ACCESSORY),
                     ConnectionIssueBannerPolicy.relevantNow(
                         mode = mode, transport = transport, wirelessSelected = true
                     )
@@ -346,6 +346,37 @@ class ConnectionIssueBannerPolicyTest {
         )
         assertFalse(
             ConnectionIssue.HOME_WIFI_REJOINED_BESIDE_GROUP in
+                ConnectionIssueBannerPolicy.remedyApplied("a name", "a password", "02:00:00:00:00:01", "02:00:00:00:00:02")
+        )
+    }
+
+    @Test
+    fun `a stale USB accessory is relevant on a cable-only unit`() {
+        for (transport in NativeTransport.values()) {
+            assertTrue(
+                ConnectionIssue.STALE_USB_ACCESSORY in
+                    ConnectionIssueBannerPolicy.relevantNow(3, transport, wirelessSelected = false)
+            )
+        }
+    }
+
+    @Test
+    fun `a stale USB accessory is relevant in every wireless mode and transport`() {
+        for (mode in 0..3) {
+            for (transport in NativeTransport.values()) {
+                assertTrue(
+                    "mode=$mode transport=$transport",
+                    ConnectionIssue.STALE_USB_ACCESSORY in
+                        ConnectionIssueBannerPolicy.relevantNow(mode, transport, wirelessSelected = true)
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `no setting is a remedy for a stale USB accessory`() {
+        assertFalse(
+            ConnectionIssue.STALE_USB_ACCESSORY in
                 ConnectionIssueBannerPolicy.remedyApplied("a name", "a password", "02:00:00:00:00:01", "02:00:00:00:00:02")
         )
     }
@@ -572,5 +603,40 @@ class ConnectionIssueBannerPolicyTest {
         }
         assertTrue("no state retired the record", retired > 0)
         assertTrue("no state kept a record", kept > 0)
+    }
+
+    @Test
+    fun `a wedged stack outranks the newer refusal it causes`() {
+        val shown = bannerFor(standing = listOf(
+            standing(ConnectionIssue.WIFI_DIRECT_STACK_STUCK, 1_000L),
+            standing(ConnectionIssue.WIFI_DIRECT_GROUP_REFUSED, 5_000L)
+        ))
+        assertEquals(ConnectionIssue.WIFI_DIRECT_STACK_STUCK, shown)
+    }
+
+    @Test
+    fun `a wedged stack does not outrank newer records other than the refusal`() {
+        val shown = bannerFor(standing = listOf(
+            standing(ConnectionIssue.WIFI_DIRECT_STACK_STUCK, 1_000L),
+            standing(ConnectionIssue.WIFI_RADIO_OFF, 5_000L)
+        ))
+        assertEquals(ConnectionIssue.WIFI_RADIO_OFF, shown)
+        val cycled = bannerFor(standing = listOf(
+            standing(ConnectionIssue.WIFI_DIRECT_STACK_STUCK, 1_000L),
+            standing(ConnectionIssue.WIFI_DIRECT_STACK_CYCLED, 5_000L)
+        ))
+        assertEquals(ConnectionIssue.WIFI_DIRECT_STACK_CYCLED, cycled)
+    }
+
+    @Test
+    fun `a dismissed wedge hides neither a newer record nor the refusal`() {
+        val shown = bannerFor(
+            standing = listOf(
+                standing(ConnectionIssue.WIFI_DIRECT_STACK_STUCK, 1_000L),
+                standing(ConnectionIssue.WIFI_DIRECT_GROUP_REFUSED, 5_000L)
+            ),
+            dismissedAtEpochMs = 2_000L
+        )
+        assertEquals(ConnectionIssue.WIFI_DIRECT_GROUP_REFUSED, shown)
     }
 }

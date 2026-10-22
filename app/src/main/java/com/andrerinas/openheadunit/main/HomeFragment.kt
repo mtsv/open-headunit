@@ -25,6 +25,7 @@ import android.os.Build
 import android.bluetooth.BluetoothDevice
 import android.os.CountDownTimer
 import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.DriverCandidatePolicy
+import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.PokeTargetPolicy
 import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.ExternalBtTransportPolicy
 import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.NativeAaHandshakeManager
 import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.NativeDriverSelectionPolicy
@@ -134,11 +135,16 @@ class HomeFragment : Fragment() {
         updateProjectionButtonText()
         updateButtonStyle()
         updateButtonScale()
+        updateButtonVisibility()
         updateExitButtonVisibility()
 
         viewLifecycleOwner.lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                commManager.connectionState.collect { updateProjectionButtonText() }
+                commManager.connectionState.collect {
+                    updateProjectionButtonText()
+                    updateButtonVisibility()
+                    updateButtonStyle()
+                }
             }
         }
 
@@ -349,7 +355,7 @@ class HomeFragment : Fragment() {
         val v = view ?: return
         val appSettings = App.provide(ctx).settings
         val isNightActive = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        HomeUiHelper.applyButtonStyles(ctx, v, appSettings, isNightActive)
+        HomeUiHelper.applyButtonStyles(ctx, v, appSettings, isNightActive, commManager.isConnected)
     }
 
     private fun updateButtonScale() {
@@ -359,6 +365,13 @@ class HomeFragment : Fragment() {
         val density = resources.displayMetrics.density
         val isPortrait = resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
         HomeUiHelper.applyButtonScale(v, appSettings.homeButtonScalePercent, isPortrait, density)
+    }
+
+    private fun updateButtonVisibility() {
+        val v = view ?: return
+        val ctx = context ?: return
+        val appSettings = App.provide(ctx).settings
+        HomeUiHelper.applyButtonVisibility(v, appSettings, commManager.isConnected)
     }
 
     private fun updateExitButtonVisibility() {
@@ -590,19 +603,22 @@ class HomeFragment : Fragment() {
                             appSettings.nativePreferredDeviceMac.isNotEmpty() ||
                             appSettings.nativePokeBtMacs.isNotEmpty()
 
+                        val scope = autoScopeMacs(cands, appSettings)
                         val autoTargetMac = NativeDriverSelectionPolicy.resolveAutoConnectTarget(
                             preferredMac = appSettings.nativePreferredDeviceMac,
                             lastUsedMac = NativeDriverSelectionPolicy.lastUsedMac(
                                 appSettings.lastConnectedNativeMac, appSettings.nativePokeBtMacs
                             ),
                             connectedMacs = connectedMacs,
-                            pairedMacs = candidates.map { it.address }
+                            pairedMacs = candidates.map { it.address },
+                            scopeMacs = scope
                         )
 
                         val shouldShow = NativeDriverSelectionPolicy.shouldShowSelector(
                             mode = appSettings.nativeDriverSelectionMode,
                             pairedCount = candidates.size,
                             connectedCount = connectedMacs.size,
+                            scopedCount = scope.size,
                             hasHistory = hasHistory
                         )
 
@@ -610,14 +626,7 @@ class HomeFragment : Fragment() {
                             if (autoTargetMac != null) {
                                 val targetDev = cands.deviceFor(autoTargetMac)
                                 val devName = targetDev?.name ?: autoTargetMac
-                                connectToNativeDevice(autoTargetMac, devName, connectedMacs)
-                            } else if (candidates.size == 1) {
-                                ToastUtils.showToast(requireContext(), getString(R.string.searching_phone), Toast.LENGTH_SHORT)
-                                val intent = Intent(requireContext(), AapService::class.java).apply {
-                                    action = AapService.ACTION_NATIVE_AA_POKE
-                                    putExtra(AapService.EXTRA_MAC, candidates[0].address)
-                                }
-                                ContextCompat.startForegroundService(requireContext(), intent)
+                                connectToNativeDevice(autoTargetMac, devName, connectedMacs, explicit = false)
                             } else {
                                 // AapService drops a poke with no MAC, so this branch used to be a
                                 // toast and nothing else. Ask which phone instead, which is what
@@ -627,7 +636,7 @@ class HomeFragment : Fragment() {
                         } else if (!shouldShow && autoTargetMac != null) {
                             val targetDev = cands.deviceFor(autoTargetMac)
                             val devName = targetDev?.name ?: autoTargetMac
-                            connectToNativeDevice(autoTargetMac, devName, connectedMacs)
+                            connectToNativeDevice(autoTargetMac, devName, connectedMacs, explicit = false)
                         } else {
                             showNativeAaDeviceSelector(autoCountdown = false)
                         }
@@ -728,6 +737,7 @@ class HomeFragment : Fragment() {
         updateProjectionButtonText()
         updateButtonStyle()
         updateButtonScale()
+        updateButtonVisibility()
         updateTextColors()
         updateExitButtonVisibility()
         if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
@@ -777,6 +787,15 @@ class HomeFragment : Fragment() {
         }
     }
 
+    /** The offered phones an automatic pick may name, from the same wake list the poke loop reads. */
+    private fun autoScopeMacs(cands: BluetoothHelper.DriverCandidates, settings: Settings): List<String> {
+        val notPhones = settings.nativePokeBtMacs.filter {
+            cands.verdictOf(it) == DriverCandidatePolicy.Verdict.NOT_A_PHONE
+        }.toSet()
+        val targets = PokeTargetPolicy.targets(settings.nativePokeBtMacs, settings.nativePokeAllPairedDevices, notPhones)
+        return NativeDriverSelectionPolicy.autoScope(cands.offered.map { it.address }, targets)
+    }
+
     /** @return whether this put something on screen, or started connecting, so nothing else should. */
     private fun checkNativeDriverSelectionOnStartup(): Boolean {
         if (!isAdded) return false
@@ -812,10 +831,12 @@ class HomeFragment : Fragment() {
         )
         val hasHistory = effectiveLastUsedMac.isNotEmpty() || appSettings.nativePreferredDeviceMac.isNotEmpty()
 
+        val scope = autoScopeMacs(cands, appSettings)
         val shouldShow = NativeDriverSelectionPolicy.shouldShowSelector(
             mode = appSettings.nativeDriverSelectionMode,
             pairedCount = targetList.size,
             connectedCount = connectedMacs.size,
+            scopedCount = scope.size,
             hasHistory = hasHistory
         )
 
@@ -823,7 +844,8 @@ class HomeFragment : Fragment() {
             preferredMac = appSettings.nativePreferredDeviceMac,
             lastUsedMac = effectiveLastUsedMac,
             connectedMacs = connectedMacs,
-            pairedMacs = targetList.map { it.address }
+            pairedMacs = targetList.map { it.address },
+            scopeMacs = scope
         )
 
         if (shouldShow) {
@@ -833,7 +855,7 @@ class HomeFragment : Fragment() {
             val targetDev = cands.deviceFor(autoTargetMac)
             val devName = targetDev?.name ?: autoTargetMac
             AppLog.i("HomeFragment: Unambiguous driver ($devName) - auto-connecting directly without prompt")
-            connectToNativeDevice(autoTargetMac, devName, connectedMacs)
+            connectToNativeDevice(autoTargetMac, devName, connectedMacs, explicit = false)
             return true
         }
         return false
@@ -1050,7 +1072,8 @@ class HomeFragment : Fragment() {
             preferredMac = preferredMac,
             lastUsedMac = effectiveLastUsed,
             connectedMacs = cands.connectedOffered.map { it.address },
-            pairedMacs = likelyPhones.map { it.address }
+            pairedMacs = likelyPhones.map { it.address },
+            scopeMacs = autoScopeMacs(cands, appSettings)
         )
         val autoTargetDevice = cands.deviceFor(autoTargetMac)
         val targetName = autoTargetDevice?.name ?: autoTargetMac ?: ""
@@ -1061,7 +1084,7 @@ class HomeFragment : Fragment() {
             driverCountdownTimer = null
             dialog.dismiss()
             val chosen = currentDevices.getOrNull(position) ?: return@setOnItemClickListener
-            connectToNativeDevice(chosen.address, chosen.name ?: "Device", connectedMacs)
+            connectToNativeDevice(chosen.address, chosen.name ?: "Device", connectedMacs, explicit = true)
         }
 
         val timeoutSec = NativeDriverSelectionPolicy.sanitizeTimeout(appSettings.nativeDriverSelectionTimeoutSec)
@@ -1088,7 +1111,7 @@ class HomeFragment : Fragment() {
                     if (!isAdded || dialog.isShowing != true) return
                     selectionResolved = true
                     dialog.dismiss()
-                    connectToNativeDevice(autoTargetMac, targetName, connectedMacs)
+                    connectToNativeDevice(autoTargetMac, targetName, connectedMacs, explicit = false)
                 }
             }
             countdownSubtitle.text = getString(R.string.driver_selection_auto_in, timeoutSec, targetName)
@@ -1119,7 +1142,7 @@ class HomeFragment : Fragment() {
      * so every path gets the non-blocking pill with its step line; the full-screen overlay takes
      * over once the phone answers. The pill names the phone, so no toast repeats it.
      */
-    private fun connectToNativeDevice(mac: String, name: String, connectedMacs: Collection<String>) {
+    private fun connectToNativeDevice(mac: String, name: String, connectedMacs: Collection<String>, explicit: Boolean) {
         val reachable = NativeDriverSelectionPolicy.connectUiIsImmediate(mac, connectedMacs)
         AppLog.i("HomeFragment: Connecting to Native-AA device: $name ($mac), btConnected=$reachable")
         // Without a status text the indicator falls back to "Android Auto is starting", which is the
@@ -1135,6 +1158,7 @@ class HomeFragment : Fragment() {
         val intent = Intent(requireContext(), AapService::class.java).apply {
             action = AapService.ACTION_NATIVE_AA_POKE
             putExtra(AapService.EXTRA_MAC, mac)
+            putExtra(AapService.EXTRA_EXPLICIT_PICK, explicit)
         }
         ContextCompat.startForegroundService(requireContext(), intent)
     }

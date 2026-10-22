@@ -16,6 +16,8 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.andrerinas.openheadunit.App
 import com.andrerinas.openheadunit.R
+import com.andrerinas.openheadunit.utils.AnnouncedDensityPolicy
+import com.andrerinas.openheadunit.utils.OnboardingDisplayPolicy
 import com.andrerinas.openheadunit.utils.Settings
 import com.andrerinas.openheadunit.utils.SystemOptimizer
 import com.andrerinas.openheadunit.utils.ToastUtils
@@ -27,7 +29,7 @@ import com.google.android.material.switchmaterial.SwitchMaterial
 
 /**
  * Sub-screen to choose the Android Auto DPI with a slider, a live graphic and
- * Small/Medium/Large tabs, plus an Automatic switch (0 = use the device density).
+ * Small/Medium/Large tabs, plus an Automatic switch (0 = the density computed for the codec size).
  * It saves on its own Save button and also hands the value back to SettingsFragment so the
  * main list stays in sync. DPI takes effect on the next Android Auto connection.
  */
@@ -38,10 +40,15 @@ class DpiSettingsFragment : Fragment() {
     private lateinit var picker: DpiPickerView
     private lateinit var autoSwitch: SwitchMaterial
     private lateinit var autoDesc: TextView
+    private lateinit var widescreenHint: TextView
     private lateinit var overPanelWarning: TextView
+    private lateinit var clampedNote: TextView
+    private lateinit var overrideButton: MaterialButton
     private var saveButton: MaterialButton? = null
 
     private var initialValue = 0
+    private var initialOverride = false
+    private var pendingOverride = false
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         return inflater.inflate(R.layout.fragment_dpi_settings, container, false)
@@ -54,36 +61,62 @@ class DpiSettingsFragment : Fragment() {
         picker = view.findViewById(R.id.dpi_picker)
         autoSwitch = view.findViewById(R.id.dpi_auto_switch)
         autoDesc = view.findViewById(R.id.dpi_auto_desc)
+        widescreenHint = view.findViewById(R.id.dpi_widescreen_hint)
         overPanelWarning = view.findViewById(R.id.dpi_over_panel_warning)
+        clampedNote = view.findViewById(R.id.dpi_clamped_note)
+        overrideButton = view.findViewById(R.id.dpi_portrait_override_button)
+        overrideButton.setOnClickListener {
+            pendingOverride = !pendingOverride
+            updateSaveButtonState()
+            updateClampedNote()
+        }
 
         setupToolbar()
 
-        // Show which DPI "Automatic" actually uses (the device's own density).
-        val detected = detectedDensityDpi()
-        autoDesc.text = getString(R.string.dpi_automatic_desc_format, detected)
+        // Show which DPI "Automatic" actually sends, and the dp canvas it gives.
+        val p = previewResolution()
+        val (pw, ph, resName) = Triple(p.w, p.h, p.name)
+        val auto0 = preview(0)
+        val (cw, ch) = AnnouncedDensityPolicy.phoneCanvas(pw, ph, p.par)
+        autoDesc.text = getString(
+            R.string.dpi_automatic_desc_canvas, auto0.announced, resName,
+            AnnouncedDensityPolicy.canvasDp(cw, auto0.announced), AnnouncedDensityPolicy.canvasDp(ch, auto0.announced)
+        )
+
+        val wide = AnnouncedDensityPolicy.widescreenHintDpi(pw, ph)
+        if (wide > 0) {
+            widescreenHint.text = getString(R.string.dpi_widescreen_hint, wide)
+            widescreenHint.visibility = View.VISIBLE
+        } else {
+            widescreenHint.visibility = View.GONE
+        }
 
         // If the chosen resolution exceeds the panel, the DPI is computed for the capped resolution
         // the device will actually project, so flag it (issue #767).
         updateOverPanelWarning()
 
         initialValue = settings.dpiPixelDensity
+        initialOverride = settings.dpiFloorOverride
+        pendingOverride = initialOverride
         val auto = initialValue == 0
         autoSwitch.isChecked = auto
-        picker.dpi = if (auto) detected else initialValue
+        picker.dpi = if (auto) auto0.announced else initialValue
         picker.visibility = if (auto) View.GONE else View.VISIBLE
 
         autoSwitch.setOnCheckedChangeListener { _, checked ->
             picker.visibility = if (checked) View.GONE else View.VISIBLE
             if (checked) picker.stopDemo() else picker.startDemo()
             updateSaveButtonState()
+            updateClampedNote()
         }
-        picker.setOnDpiChanged { updateSaveButtonState() }
+        picker.setOnDpiChanged { updateSaveButtonState(); updateClampedNote() }
 
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { handleBackPress() }
         })
 
         updateSaveButtonState()
+        updateClampedNote()
 
         // Show the animated demo right away when the picker is visible (Automatic off).
         if (!auto) picker.startDemo()
@@ -111,8 +144,10 @@ class DpiSettingsFragment : Fragment() {
     /** 0 = Automatic (device density), otherwise the chosen DPI. */
     private fun currentValue(): Int = if (autoSwitch.isChecked) 0 else picker.dpi
 
+    private fun hasChanges(): Boolean = currentValue() != initialValue || pendingOverride != initialOverride
+
     private fun updateSaveButtonState() {
-        val changed = currentValue() != initialValue
+        val changed = hasChanges()
         saveButton?.isEnabled = changed
         // DPI only applies on the next Android Auto connection.
         saveButton?.text = getString(if (changed) R.string.save_and_restart else R.string.save)
@@ -124,10 +159,12 @@ class DpiSettingsFragment : Fragment() {
         picker.commitPendingInput()
         val value = currentValue()
         settings.dpiPixelDensity = value
+        if (pendingOverride != initialOverride) settings.dpiFloorOverride = pendingOverride
         settings.commit()
         // Keep SettingsFragment's pending value in sync so it does not overwrite this on save.
         findNavController().previousBackStackEntry?.savedStateHandle?.set(KEY_DPI_RESULT, value)
         initialValue = value
+        initialOverride = pendingOverride
         updateSaveButtonState()
         ToastUtils.showToast(requireContext(), R.string.settings_saved, Toast.LENGTH_SHORT, force = true)
     }
@@ -135,7 +172,7 @@ class DpiSettingsFragment : Fragment() {
     private fun handleBackPress() {
         // So the unsaved-changes prompt weighs the value the user typed, not the one it replaced.
         picker.commitPendingInput()
-        if (currentValue() != initialValue) {
+        if (hasChanges()) {
             MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
                 .setTitle(R.string.unsaved_changes)
                 .setMessage(R.string.unsaved_changes_message)
@@ -147,9 +184,56 @@ class DpiSettingsFragment : Fragment() {
         }
     }
 
-    private fun detectedDensityDpi(): Int {
+    private data class Preview(val w: Int, val h: Int, val name: String, val par: Int)
+
+    /** The visible size Android Auto gets at the stored resolution, its name and the pixel aspect ratio. */
+    private fun previewResolution(): Preview {
         val m = realMetrics()
-        return if (m.densityDpi > 0) m.densityDpi else 160
+        val chosen = Settings.Resolution.fromId(settings.resolutionId)
+        val r = if (chosen == null || chosen == Settings.Resolution.AUTO) {
+            SystemOptimizer.recommendedResolution(m.widthPixels, m.heightPixels)
+        } else chosen
+        val (pw, ph) = AnnouncedDensityPolicy.orientPanel(
+            m.widthPixels, m.heightPixels, AnnouncedDensityPolicy.projectsPortrait(settings.screenOrientation)
+        )
+        val (w, h) = AnnouncedDensityPolicy.visibleSize(settings.videoFitMode, pw, ph, r.width, r.height)
+        val par = AnnouncedDensityPolicy.pixelAspectE4(
+            settings.videoFitMode, pw, ph, r.width, r.height, settings.pixelAspectRatioE4
+        )
+        return Preview(w, h, r.resName, par)
+    }
+
+    private fun preview(value: Int, override: Boolean = pendingOverride): AnnouncedDensityPolicy.Decision {
+        val p = previewResolution()
+        val preset = OnboardingDisplayPolicy.initialPreset(
+            settings.displaySizePreset, SystemOptimizer.DisplaySizePreset.SMALL_7_8
+        )
+        return AnnouncedDensityPolicy.decide(value, preset, p.w, p.h, p.par, override)
+    }
+
+    /** Says so while the picked value is lower on the wire than on the slider, or sent past a floor. */
+    private fun updateClampedNote() {
+        val picked = picker.dpi
+        val d = preview(picked)
+        val reason = if (autoSwitch.isChecked) null else d.reason
+        val floor = preview(picked, false).announced
+        val portrait = previewResolution().let { it.h > it.w }
+        val note = when {
+            reason == AnnouncedDensityPolicy.Reason.FLOOR_OVERRIDE -> getString(
+                if (portrait) R.string.dpi_portrait_override_note else R.string.dpi_floor_override_note, picked, floor
+            )
+            reason == AnnouncedDensityPolicy.Reason.PORTRAIT_FLOOR ->
+                getString(R.string.dpi_clamped_note_portrait, picked, d.announced)
+            reason != null && d.announced != picked -> getString(R.string.dpi_clamped_note, picked, d.announced)
+            else -> null
+        }
+        clampedNote.text = note ?: ""
+        clampedNote.visibility = if (note != null) View.VISIBLE else View.GONE
+        overrideButton.setText(
+            if (reason == AnnouncedDensityPolicy.Reason.FLOOR_OVERRIDE) R.string.resolution_use_recommended
+            else R.string.resolution_use_anyway
+        )
+        overrideButton.visibility = if (note != null) View.VISIBLE else View.GONE
     }
 
     private fun realMetrics(): DisplayMetrics {
