@@ -175,10 +175,33 @@ credential-bearing keys; read `contract/README.md` before touching anything in `
 - Commit subjects on this repo read as a sentence about the outcome, area-prefixed —
   e.g. `Audio: the sink is measured, sized by the dial, and keeps what it has`.
 
+### Fork versioning
+
+This repository is a fork, and its builds are versioned to say so. `defaultConfig` in
+`app/build.gradle.kts` appends a `forkRevision` counter to upstream's `versionName`, so a build
+from here reads `4.0.0-alpha-0` where upstream's reads `4.0.0-alpha`. The name reaches the APK
+filename, the in-app About screen, and any bug report made from the build, which is the point —
+an APK from this fork is never mistaken for one built from `andreknieriem/open-headunit`.
+
+**Bump `forkRevision` for every change worth flashing.** It only counts up and is never reset, so
+`4.0.1-7` reads as the seventh fork build, which happens to sit on upstream 4.0.1 — the number
+identifies the build, not its position within an upstream release.
+
+Upstream's `versionName = "..."` line is left byte-identical on purpose, with the fork number
+applied by a second assignment on the line below. That way the version bumps arriving in every
+merge from `main` apply cleanly instead of conflicting on that line each time — so set the fork
+revision below it, never by editing upstream's line.
+
+`versionCode` is deliberately left as upstream sets it: equal codes still install over each other
+with `adb install -r`, and keeping them equal means a fork build can be rolled back to an earlier
+one without Android refusing the downgrade.
+
 ## Gotchas
 
-- `versionCode`/`versionName` in `app/build.gradle.kts` do not move between candidates of the same
-  fix, so they cannot identify a build. `BuildConfig.GIT_SHA` (with a `-dirty` suffix) can.
+- `versionCode` in `app/build.gradle.kts` does not move between candidates of the same fix, so it
+  cannot identify a build. `versionName` now carries the fork revision (see **Fork versioning**)
+  and moves whenever that is bumped — but only when someone remembers to bump it.
+  `BuildConfig.GIT_SHA` (with a `-dirty` suffix) identifies a build whether they did or not.
 - `BuildConfig.AVAILABLE_LOCALES` is scanned from `values-*` directories **at configuration time**;
   adding a translation directory requires a Gradle re-sync to be picked up.
 - Lint is not run in CI: `:app:lintAnalyzeGithubDebug` hangs on GitHub runners (likely the large

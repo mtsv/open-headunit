@@ -98,6 +98,19 @@ android {
         targetSdk = 36
         versionCode = 120
         versionName = "4.0.0-alpha"
+        // This fork's build counter, appended to whatever upstream's versionName above says, so an
+        // APK built here is never mistaken for one built from andreknieriem/open-headunit - the
+        // name reaches the APK filename, the in-app About screen and any bug report made from it.
+        //
+        // Bump it for every change worth flashing. It only counts up and is never reset: its job is
+        // to make a build identifiable, not to number builds within one upstream release, so
+        // "4.0.1-7" simply reads as the seventh fork build, which happens to sit on upstream 4.0.1.
+        //
+        // Assigning versionName a second time rather than editing the line above is deliberate.
+        // Upstream's line stays byte-identical, so the version bumps that arrive in every merge
+        // from main apply cleanly instead of conflicting on this line each time.
+        val forkRevision = 0
+        versionName = "$versionName-$forkRevision"
         setProperty("archivesBaseName", "${applicationId}_${versionName}")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled = true
