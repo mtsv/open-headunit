@@ -68,6 +68,7 @@ object HeadUnitScreenConfig {
             if (adoptedFallback != null) return false
             announcedWidthMargin = offered.widthMargin
             announcedHeightMargin = offered.heightMargin
+            announcedTopLeft = false
             adoptedFallback = offered
             offered
         }
@@ -125,6 +126,15 @@ object HeadUnitScreenConfig {
     // its own; this is what the drift is measured against.
     @Volatile private var announcedWidthMargin: Int = MarginAnnouncementPolicy.NOT_ANNOUNCED
     @Volatile private var announcedHeightMargin: Int = MarginAnnouncementPolicy.NOT_ANNOUNCED
+    // Whether those margins were all on the right and bottom: the hidden AA bar's canvas.
+    @Volatile private var announcedTopLeft: Boolean = false
+
+    // "Hide Android Auto bar" (CanvasExtensionPolicy), as asked for by the projection activity. It
+    // sits on top of the measured canvas and changes only the margins on the wire: the resolution,
+    // the strategy, the pixel shape, the density and the normal margins are all computed without it,
+    // and so is the settings hash, so switching it never unlocks the resolution or discards a
+    // measurement. Whether the canvas allows it right now is decided on each read.
+    @Volatile private var requestedCanvasExtension: CanvasExtensionPolicy.Extension? = null
 
     /**
      * Raised when the live margins leave the announced ones. The listener records what it sends;
@@ -135,9 +145,15 @@ object HeadUnitScreenConfig {
     // The listener redraws, which re-enters init() and can land back here. One notification at a time.
     private var notifyingMarginDivergence: Boolean = false
 
-    fun recordAnnouncedMargins(widthMargin: Int, heightMargin: Int) {
+    fun recordAnnouncedMargins(widthMargin: Int, heightMargin: Int, topLeft: Boolean = false) {
         announcedWidthMargin = widthMargin
         announcedHeightMargin = heightMargin
+        announcedTopLeft = topLeft
+    }
+
+    /** What the last [recordAnnouncedMargins] needs to describe the margins on the wire now. */
+    fun recordAnnouncedWireMargins() {
+        recordAnnouncedMargins(getWireWidthMargin(), getWireHeightMargin(), getCanvasExtensionLayout() != null)
     }
 
     // The canvas the announced pixel shape was derived from. Only service discovery carries a pixel
@@ -158,13 +174,17 @@ object HeadUnitScreenConfig {
     fun marginsMatchAnnounced(): Boolean =
         announcedWidthMargin != MarginAnnouncementPolicy.NOT_ANNOUNCED &&
             announcedHeightMargin != MarginAnnouncementPolicy.NOT_ANNOUNCED &&
-            !MarginAnnouncementPolicy.shouldReannounce(
-                announcedWidthMargin, announcedHeightMargin, getWidthMargin(), getHeightMargin()
-            )
+            !wireMarginsDiverged()
+
+    private fun wireMarginsDiverged(): Boolean = MarginAnnouncementPolicy.shouldReannounce(
+        announcedWidthMargin, announcedHeightMargin, getWireWidthMargin(), getWireHeightMargin(),
+        announcedTopLeft, getCanvasExtensionLayout() != null,
+    )
 
     fun clearAnnouncedMargins() {
         announcedWidthMargin = MarginAnnouncementPolicy.NOT_ANNOUNCED
         announcedHeightMargin = MarginAnnouncementPolicy.NOT_ANNOUNCED
+        announcedTopLeft = false
         announcedCanvasW = 0
         announcedCanvasH = 0
         loggedCanvasDrift = false
@@ -573,14 +593,12 @@ object HeadUnitScreenConfig {
 
         AppLog.i("[UI_DEBUG] CarScreen isSmallScreen: $isSmallScreen, scaleFactor: $scaleFactor, portraitScaled: $isPortraitScaled, shape=${marginStrategy()}, margins: w=${getWidthMargin()}, h=${getHeightMargin()}")
 
-        if (!notifyingMarginDivergence &&
-            MarginAnnouncementPolicy.shouldReannounce(
-                announcedWidthMargin, announcedHeightMargin, getWidthMargin(), getHeightMargin()
-            )
-        ) {
+        if (!notifyingMarginDivergence && wireMarginsDiverged()) {
             AppLog.i(
                 "[UI_DEBUG] CarScreen: margins drifted from the announced " +
-                    "${announcedWidthMargin}x${announcedHeightMargin} to ${getWidthMargin()}x${getHeightMargin()}"
+                    "${announcedWidthMargin}x${announcedHeightMargin}${if (announcedTopLeft) " (top-left)" else ""} " +
+                    "to ${getWireWidthMargin()}x${getWireHeightMargin()}" +
+                    (getCanvasExtensionLayout()?.let { " (AA bar hidden, ${getCanvasExtension()})" } ?: "")
             )
             notifyingMarginDivergence = true
             try {
@@ -729,6 +747,61 @@ object HeadUnitScreenConfig {
     fun getRightMargin(): Int = getWidthMargin() - getLeftMargin()
     fun getTopMargin(): Int = getHeightMargin() / 2
     fun getBottomMargin(): Int = getHeightMargin() - getTopMargin()
+
+    /**
+     * Ask for the AA bar to be hidden by [ext] panel px, or for the normal canvas with null. The
+     * caller has already applied what only it knows (the setting, the on/off state, the view
+     * type); the canvas-dependent rules are applied here on every read. A change recalculates,
+     * which re-announces the margins through [onMarginsDiverged] and redraws.
+     */
+    fun setCanvasExtension(ext: CanvasExtensionPolicy.Extension?) {
+        val wanted = ext?.takeUnless { it.isZero }
+        if (wanted == requestedCanvasExtension) return
+        requestedCanvasExtension = wanted
+        AppLog.i("[UI_DEBUG] CarScreen: AA bar extension requested: ${wanted ?: "none"}")
+        if (isInitialized) recalculate()
+    }
+
+    /** The extension in force: requested, allowed by the canvas as it is now, and clamped to it. */
+    fun getCanvasExtension(): CanvasExtensionPolicy.Extension? {
+        val requested = requestedCanvasExtension ?: return null
+        // isInitialized is raised a line before the settings are stored.
+        if (!isInitialized || !this::currentSettings.isInitialized) return null
+        val blocked = CanvasExtensionPolicy.ineligibility(
+            enabled = true,
+            pip = App.isPiPActive,
+            canvasW = screenWidthPx,
+            canvasH = screenHeightPx,
+            hudMirroring = currentSettings.hudMirroring,
+            fitMode = videoFitMode,
+            forcedScale = forcedScale,
+            // The view type is the caller's to judge; it does not move with the canvas.
+            isSurfaceView = false,
+            sdkInt = Build.VERSION.SDK_INT,
+        )
+        if (blocked != null) return null
+        return CanvasExtensionPolicy.clamp(requested, screenWidthPx, screenHeightPx)
+            .takeUnless { it.isZero }
+    }
+
+    /** AA's canvas while the bar is hidden, against the normal margins of the session; null otherwise. */
+    fun getCanvasExtensionLayout(): CanvasExtensionPolicy.Layout? {
+        val ext = getCanvasExtension() ?: return null
+        return CanvasExtensionPolicy.layout(
+            getNegotiatedWidth(), getNegotiatedHeight(), getWidthMargin(), getHeightMargin(),
+            screenWidthPx, screenHeightPx, ext,
+        )
+    }
+
+    // The margins to put on the wire: the normal ones split evenly, or the hidden bar's all on
+    // the right and bottom, which is where the spike showed AA anchors its canvas top-left.
+    // Everything else (scale, pixel shape, density, touch in the normal state) keeps the normal ones.
+    fun getWireWidthMargin(): Int = getCanvasExtensionLayout()?.marginW ?: getWidthMargin()
+    fun getWireHeightMargin(): Int = getCanvasExtensionLayout()?.marginH ?: getHeightMargin()
+    fun getWireLeftMargin(): Int = if (getCanvasExtensionLayout() != null) 0 else getLeftMargin()
+    fun getWireTopMargin(): Int = if (getCanvasExtensionLayout() != null) 0 else getTopMargin()
+    fun getWireRightMargin(): Int = getCanvasExtensionLayout()?.marginW ?: getRightMargin()
+    fun getWireBottomMargin(): Int = getCanvasExtensionLayout()?.marginH ?: getBottomMargin()
 
     /**
      * Called when the actual rendering surface dimensions become known (from onSurfaceChanged).

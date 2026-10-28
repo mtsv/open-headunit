@@ -24,6 +24,15 @@ class MarginAnnouncementPolicyTest {
         assertFalse(MarginAnnouncementPolicy.shouldReannounce(0, 0, 0, 0))
     }
 
+    // Hiding the AA bar can land on the same totals with the canvas moved to the top-left.
+    @Test
+    fun `the same margins moved to the other anchor are re-announced`() {
+        assertTrue(MarginAnnouncementPolicy.shouldReannounce(0, 46, 0, 46, announcedTopLeft = false, liveTopLeft = true))
+        assertTrue(MarginAnnouncementPolicy.shouldReannounce(0, 46, 0, 46, announcedTopLeft = true, liveTopLeft = false))
+        assertFalse(MarginAnnouncementPolicy.shouldReannounce(0, 46, 0, 46, announcedTopLeft = true, liveTopLeft = true))
+        assertFalse(MarginAnnouncementPolicy.shouldReannounce(none, none, 0, 46, liveTopLeft = true))
+    }
+
     // Every recalculate before the capability message would otherwise look like a drift.
     @Test
     fun `nothing announced yet is not a drift`() {

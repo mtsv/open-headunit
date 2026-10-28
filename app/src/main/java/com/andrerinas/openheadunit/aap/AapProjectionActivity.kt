@@ -2154,14 +2154,12 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         }
         if (HeadUnitScreenConfig.marginsMatchAnnounced()) return true
         commManager.sendUpdateUiConfigRequest(
-            HeadUnitScreenConfig.getLeftMargin(),
-            HeadUnitScreenConfig.getTopMargin(),
-            HeadUnitScreenConfig.getRightMargin(),
-            HeadUnitScreenConfig.getBottomMargin()
+            HeadUnitScreenConfig.getWireLeftMargin(),
+            HeadUnitScreenConfig.getWireTopMargin(),
+            HeadUnitScreenConfig.getWireRightMargin(),
+            HeadUnitScreenConfig.getWireBottomMargin()
         )
-        HeadUnitScreenConfig.recordAnnouncedMargins(
-            HeadUnitScreenConfig.getWidthMargin(), HeadUnitScreenConfig.getHeightMargin()
-        )
+        HeadUnitScreenConfig.recordAnnouncedWireMargins()
         AppLog.i("[UI_DEBUG_FIX] AA is already running, send corrected via sendUpdateUiConfigRequest")
         return true
     }
