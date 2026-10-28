@@ -42,6 +42,7 @@ import com.andrerinas.openheadunit.decoder.video.VideoDecoder
 import com.andrerinas.openheadunit.decoder.video.VideoDimensionsListener
 import com.andrerinas.openheadunit.utils.AppLog
 import com.andrerinas.openheadunit.utils.BluetoothHelper
+import com.andrerinas.openheadunit.utils.CanvasExtensionPolicy
 import com.andrerinas.openheadunit.connection.self.SelfModeCallRaisePolicy
 import com.andrerinas.openheadunit.connection.usb.UsbSwitchClaim
 import com.andrerinas.openheadunit.decoder.audio.CallState
@@ -537,6 +538,7 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
             }
 
             updateDesaturation(com.andrerinas.openheadunit.utils.NightMode(settings, false).current)
+            applyCanvasExtension()
 
             if (settings.showPerformanceOverlay && !performanceOverlay.isAttached) {
                 attachPerformanceOverlay()
@@ -1117,6 +1119,10 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
                         }
                         is CommManager.ConnectionState.TransportStarted -> {
                             watchdogHandler.removeCallbacks(exitRunnable)
+                            // Discovery carries only margin totals, so it announced the normal
+                            // ones; a session that starts with the AA bar hidden is switched now.
+                            // Nothing is sent unless the wire margins differ from what went out.
+                            if (HeadUnitScreenConfig.getCanvasExtension() != null) onMarginsDiverged()
                         }
                         // The reconnect is answering. Each of these refreshes the grace.
                         is CommManager.ConnectionState.Connecting -> noteReconnectProgress("connecting")
@@ -1800,6 +1806,8 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         App.isPiPActive = isInPictureInPictureMode
+        // The small window shows the whole canvas, rail included; the bar comes back hidden after.
+        applyCanvasExtension()
         if (isInPictureInPictureMode) {
             // Hide UI elements during PiP (like FPS counter, loading overlay)
             findViewById<View>(R.id.loading_overlay)?.visibility = View.GONE
@@ -2177,6 +2185,33 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         return reannounced
     }
 
+    /**
+     * Asks HeadUnitScreenConfig for the hidden AA bar, or for the normal canvas. The rules that
+     * need this activity (the setting, the on/off state, the view type) are decided here; the ones
+     * that move with the canvas are applied there on every read. A change recalculates, which
+     * re-announces the margins and redraws through [onMarginsDiverged] once a session is running.
+     */
+    private fun applyCanvasExtension() {
+        if (!::projectionView.isInitialized) return
+        val ineligible = CanvasExtensionPolicy.ineligibility(
+            enabled = settings.canvasExtensionEnabled,
+            pip = App.isPiPActive,
+            canvasW = HeadUnitScreenConfig.getUsableWidth(),
+            canvasH = HeadUnitScreenConfig.getUsableHeight(),
+            hudMirroring = settings.hudMirroring,
+            fitMode = settings.videoFitMode,
+            forcedScale = HeadUnitScreenConfig.forcedScale,
+            isSurfaceView = projectionView is ProjectionView,
+            sdkInt = Build.VERSION.SDK_INT,
+        )
+        val extension = CanvasExtensionPolicy.toPanelPx(
+            settings.canvasExtension, HeadUnitScreenConfig.densityDecision().announced
+        )
+        HeadUnitScreenConfig.setCanvasExtension(
+            CanvasExtensionPolicy.effective(ineligible, settings.canvasExtensionActive, extension)
+        )
+    }
+
     /** Called from the receive thread; the layout belongs to the UI thread. */
     private fun onFallbackAdopted() {
         runOnUiThread {
@@ -2214,9 +2249,21 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         val marginW = HeadUnitScreenConfig.getWidthMargin().toFloat()
         val marginH = HeadUnitScreenConfig.getHeightMargin().toFloat()
 
+        // With the AA bar hidden the touch goes straight into AA's bigger canvas instead.
+        val extension = HeadUnitScreenConfig.getCanvasExtension()
+        val extensionLayout = HeadUnitScreenConfig.getCanvasExtensionLayout()
+
         val pointerData = mutableListOf<Triple<Int, Int, Int>>()
         repeat(event.pointerCount) { pointerIndex ->
             val pointerId = event.getPointerId(pointerIndex)
+            if (extension != null && extensionLayout != null && view.width > 0 && view.height > 0) {
+                val (x, y) = CanvasExtensionPolicy.toCanvasTouch(
+                    event.getX(pointerIndex), event.getY(pointerIndex), viewW, viewH,
+                    view.width, view.height, extensionLayout, extension,
+                )
+                pointerData.add(Triple(pointerId, x, y))
+                return@repeat
+            }
             val corrected = TouchCoordinateMapper.map(
                 rawX = event.getX(pointerIndex),
                 rawY = event.getY(pointerIndex),
@@ -2466,6 +2513,8 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         }
         // Use the same screen conf for both views for negotiation
         HeadUnitScreenConfig.init(this, displayMetrics, settings)
+        // The view type is one of the hidden AA bar's rules, and a recreate can change it.
+        applyCanvasExtension()
 
         val view = projectionView as View
         container.addView(view)

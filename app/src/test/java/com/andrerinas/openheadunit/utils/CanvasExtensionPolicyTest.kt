@@ -209,6 +209,35 @@ class CanvasExtensionPolicyTest {
         }
     }
 
+    // The GL view has no pivot: its quad is scaled about the clip-space centre, y up.
+    @Test
+    fun `the clip-space transform puts the quad where the View transform puts the view`() {
+        val ext = Extension(120, 30, 50)
+        val layout = headUnit(ext)
+        val t = CanvasExtensionPolicy.viewTransform(layout, 1280, 720, 1775, 675, ext)
+        val clip = CanvasExtensionPolicy.toClipSpace(t, 1775, 675)
+        fun clipToPxX(c: Float) = (c + 1f) / 2f * 1775
+        fun clipToPxY(c: Float) = (1f - c) / 2f * 675
+        for (px in listOf(0f, 400f, 1775f)) {
+            val viaView = px * t.scaleX + t.translationX
+            val clipIn = px / 1775 * 2f - 1f
+            assertEquals(viaView, clipToPxX(clipIn * clip.scaleX + clip.translationX), 0.05f)
+        }
+        for (py in listOf(0f, 300f, 675f)) {
+            val viaView = py * t.scaleY + t.translationY
+            val clipIn = 1f - py / 675 * 2f
+            assertEquals(viaView, clipToPxY(clipIn * clip.scaleY + clip.translationY), 0.05f)
+        }
+    }
+
+    @Test
+    fun `an identity transform stays identity in clip space`() {
+        assertEquals(
+            CanvasExtensionPolicy.ViewTransform(1f, 1f, 0f, 0f),
+            CanvasExtensionPolicy.toClipSpace(CanvasExtensionPolicy.ViewTransform(1f, 1f, 0f, 0f), 1775, 675),
+        )
+    }
+
     @Test
     fun `an overlay of a different size than the panel is scaled into it first`() {
         val ext = Extension(200, 0, 0)

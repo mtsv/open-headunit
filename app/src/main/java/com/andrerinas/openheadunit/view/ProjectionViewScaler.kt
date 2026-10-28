@@ -1,11 +1,13 @@
 package com.andrerinas.openheadunit.view
 
+import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.view.Gravity
 import com.andrerinas.openheadunit.App
 import com.andrerinas.openheadunit.utils.AppLog
+import com.andrerinas.openheadunit.utils.CanvasExtensionPolicy
 import com.andrerinas.openheadunit.utils.HeadUnitScreenConfig
 import com.andrerinas.openheadunit.utils.Settings
 
@@ -119,6 +121,24 @@ object ProjectionViewScaler {
                 view.layoutParams = lp
             }
 
+            // The AA bar hidden: the canvas is bigger than the window and drawn so the rail's strip
+            // falls outside it. The views that cannot do it were kept out by whoever asked for it.
+            val extension = HeadUnitScreenConfig.getCanvasExtension()
+            val layout = HeadUnitScreenConfig.getCanvasExtensionLayout()
+            if (extension != null && layout != null && view is IProjectionView) {
+                val t = CanvasExtensionPolicy.viewTransform(
+                    layout,
+                    HeadUnitScreenConfig.getNegotiatedWidth(), HeadUnitScreenConfig.getNegotiatedHeight(),
+                    view.width, view.height, extension,
+                )
+                view.setVideoTransform(t.scaleX, t.scaleY, t.translationX, t.translationY)
+                AppLog.i(
+                    "[UI_DEBUG] AA bar hidden: $extension, canvas ${layout.canvasW}x${layout.canvasH}, " +
+                        "scale ${t.scaleX}x${t.scaleY}, translation ${t.translationX},${t.translationY}"
+                )
+                return
+            }
+
             // Normal centering for non-forced modes
             view.translationX = 0f
             view.translationY = 0f
@@ -130,6 +150,17 @@ object ProjectionViewScaler {
                 view.scaleY = finalScaleY
             }
             AppLog.i("[UI_DEBUG] Normal Scale. scaleX: $finalScaleX, scaleY: $finalScaleY")
+        }
+    }
+
+    /** The centre pivot back after [IProjectionView.setVideoTransform] pinned it to the top-left. */
+    fun releasePivot(view: View) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            view.resetPivot()
+        } else {
+            // No way back to the automatic pivot here; every size change re-enters updateScale.
+            view.pivotX = view.width / 2f
+            view.pivotY = view.height / 2f
         }
     }
 }

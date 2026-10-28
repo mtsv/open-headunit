@@ -15,6 +15,12 @@ interface IProjectionView {
     fun setVideoScale(scaleX: Float, scaleY: Float)
 
     /**
+     * Scale about the view's top-left, then translate, in view px: the hidden AA bar's placement
+     * (CanvasExtensionPolicy.viewTransform). [setVideoScale] puts the pivot back in the centre.
+     */
+    fun setVideoTransform(scaleX: Float, scaleY: Float, translationX: Float, translationY: Float)
+
+    /**
      * elapsedRealtime() of the last frame this view's display consumer actually drew,
      * or 0 if none yet. Returns -1 when the backend cannot report it (a plain SurfaceView
      * is composited by SurfaceFlinger with no draw callback). The projection watchdog uses

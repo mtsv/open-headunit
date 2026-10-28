@@ -168,6 +168,22 @@ object CanvasExtensionPolicy {
     }
 
     /**
+     * [t] for a GL quad that fills clip space (-1..1, y up) with no View pivot to move: the same
+     * px placement as a View scaled about its top-left, as a scale then a translation in clip
+     * units. x' = sx * x + tx and y' = sy * y + ty.
+     */
+    fun toClipSpace(t: ViewTransform, viewW: Int, viewH: Int): ViewTransform {
+        val w = viewW.coerceAtLeast(1)
+        val h = viewH.coerceAtLeast(1)
+        return ViewTransform(
+            t.scaleX,
+            t.scaleY,
+            (t.scaleX - 1f) + 2f * t.translationX / w,
+            (1f - t.scaleY) - 2f * t.translationY / h,
+        )
+    }
+
+    /**
      * A touch on the [viewW]x[viewH] overlay, straight into AA's canvas coordinates. While the bar
      * is hidden this replaces TouchCoordinateMapper.map rather than feeding it: the origin is the
      * canvas's top-left, which the spike confirmed.

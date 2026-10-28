@@ -12,6 +12,7 @@ import android.os.SystemClock
 import android.view.Surface
 import com.andrerinas.openheadunit.decoder.video.SoftwareYuvFrameSink
 import com.andrerinas.openheadunit.utils.AppLog
+import com.andrerinas.openheadunit.utils.CanvasExtensionPolicy
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -65,6 +66,14 @@ class GlProjectionView(context: Context) : GLSurfaceView(context), IProjectionVi
         renderer.setScale(scaleX, scaleY)
     }
 
+    // No View pivot here: the quad is placed in clip space, so the same placement is converted.
+    override fun setVideoTransform(scaleX: Float, scaleY: Float, translationX: Float, translationY: Float) {
+        val clip = CanvasExtensionPolicy.toClipSpace(
+            CanvasExtensionPolicy.ViewTransform(scaleX, scaleY, translationX, translationY), width, height,
+        )
+        renderer.setTransform(clip.scaleX, clip.scaleY, clip.translationX, clip.translationY)
+    }
+
     fun setDesaturation(value: Float) {
         renderer.setDesaturation(value)
     }
@@ -104,6 +113,9 @@ class GlProjectionView(context: Context) : GLSurfaceView(context), IProjectionVi
 
         private var mScaleX = 1.0f
         private var mScaleY = 1.0f
+        // Clip-space translation, only ever non-zero while the AA bar is hidden.
+        private var mTransX = 0.0f
+        private var mTransY = 0.0f
 
         /**
          * Resizes the texture's default buffer, on the GL thread.
@@ -116,8 +128,15 @@ class GlProjectionView(context: Context) : GLSurfaceView(context), IProjectionVi
         }
 
         fun setScale(x: Float, y: Float) {
-            mScaleX = x
-            mScaleY = y
+            setTransform(x, y, 0f, 0f)
+        }
+
+        /** In clip space (CanvasExtensionPolicy.toClipSpace): x' = sx * x + tx. */
+        fun setTransform(sx: Float, sy: Float, tx: Float, ty: Float) {
+            mScaleX = sx
+            mScaleY = sy
+            mTransX = tx
+            mTransY = ty
         }
 
         private val vertexShaderCode = """
@@ -666,6 +685,7 @@ class GlProjectionView(context: Context) : GLSurfaceView(context), IProjectionVi
             GLES20.glEnableVertexAttribArray(maTextureHandle)
             
             Matrix.setIdentityM(mVPMatrix, 0)
+            Matrix.translateM(mVPMatrix, 0, mTransX, mTransY, 0f)
             Matrix.scaleM(mVPMatrix, 0, mScaleX, mScaleY, 1f)
             GLES20.glUniformMatrix4fv(muMVPMatrixHandle, 1, false, mVPMatrix, 0)
             GLES20.glUniformMatrix4fv(muSTMatrixHandle, 1, false, sSTMatrix, 0)
@@ -717,6 +737,7 @@ class GlProjectionView(context: Context) : GLSurfaceView(context), IProjectionVi
             GLES20.glEnableVertexAttribArray(yuvTextureHandle)
 
             Matrix.setIdentityM(mVPMatrix, 0)
+            Matrix.translateM(mVPMatrix, 0, mTransX, mTransY, 0f)
             Matrix.scaleM(mVPMatrix, 0, mScaleX, mScaleY, 1f)
             GLES20.glUniformMatrix4fv(yuvMVPMatrixHandle, 1, false, mVPMatrix, 0)
             Matrix.setIdentityM(sSTMatrix, 0)

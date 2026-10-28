@@ -201,6 +201,42 @@ class Settings(private val context: Context) {
         get() = prefs.getBoolean("hud_mirroring", false)
         set(value) { prefs.edit().putBoolean("hud_mirroring", value).apply() }
 
+    // "Hide Android Auto bar" (CanvasExtensionPolicy). Enabled only makes the <-> button available;
+    // active is whether the bar is hidden now, remembered across sessions.
+    var canvasExtensionEnabled: Boolean
+        get() = prefs.getBoolean("canvas-extension-enabled", false)
+        set(value) { prefs.edit().putBoolean("canvas-extension-enabled", value).apply() }
+
+    var canvasExtensionActive: Boolean
+        get() = prefs.getBoolean("canvas-extension-active", false)
+        set(value) { prefs.edit().putBoolean("canvas-extension-active", value).apply() }
+
+    // Edited in panel px, kept in dp at the announced density so a DPI change keeps the rail
+    // hidden. Hundredths of a dp, because the backup format has no float and whole dp would turn
+    // a typed 121 px into 122 at 256 dpi.
+    var canvasExtension: CanvasExtensionPolicy.StoredExtension
+        get() = CanvasExtensionPolicy.StoredExtension(
+            prefs.getInt("canvas-extension-left-cdp", 0) / 100f,
+            prefs.getInt("canvas-extension-right-cdp", 0) / 100f,
+            prefs.getInt("canvas-extension-bottom-cdp", 0) / 100f,
+        )
+        set(value) {
+            fun cdp(dp: Float) = Math.round(dp.coerceAtLeast(0f) * 100f)
+            prefs.edit()
+                .putInt("canvas-extension-left-cdp", cdp(value.leftDp))
+                .putInt("canvas-extension-right-cdp", cdp(value.rightDp))
+                .putInt("canvas-extension-bottom-cdp", cdp(value.bottomDp))
+                .apply()
+        }
+
+    var canvasExtensionButtonXPercent: Int
+        get() = prefs.getInt("canvas-extension-button-x-percent", 50)
+        set(value) { prefs.edit().putInt("canvas-extension-button-x-percent", value.coerceIn(0, 100)).apply() }
+
+    var canvasExtensionButtonYPercent: Int
+        get() = prefs.getInt("canvas-extension-button-y-percent", 0)
+        set(value) { prefs.edit().putInt("canvas-extension-button-y-percent", value.coerceIn(0, 100)).apply() }
+
     // UI Scale percentage for Home
     var uiScaleHomePercent: Int
         get() = prefs.getInt("ui-scale-home-percent", 100)

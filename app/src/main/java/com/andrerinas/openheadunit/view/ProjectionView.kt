@@ -90,9 +90,26 @@ class ProjectionView @JvmOverloads constructor(
         ProjectionViewScaler.updateScale(this, videoWidth, videoHeight)
     }
 
+    private var pivotPinned = false
+
     override fun setVideoScale(scaleX: Float, scaleY: Float) {
+        if (pivotPinned) {
+            ProjectionViewScaler.releasePivot(this)
+            pivotPinned = false
+        }
         this.scaleX = scaleX
         this.scaleY = scaleY
+    }
+
+    // A SurfaceView follows its View transform from API 24; CanvasExtensionPolicy keeps older ones out.
+    override fun setVideoTransform(scaleX: Float, scaleY: Float, translationX: Float, translationY: Float) {
+        pivotX = 0f
+        pivotY = 0f
+        pivotPinned = true
+        this.scaleX = scaleX
+        this.scaleY = scaleY
+        this.translationX = translationX
+        this.translationY = translationY
     }
 
     // A plain SurfaceView is composited directly by SurfaceFlinger, so there is no

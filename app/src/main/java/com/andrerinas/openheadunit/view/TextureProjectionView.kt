@@ -58,11 +58,27 @@ class TextureProjectionView @JvmOverloads constructor(
         ProjectionViewScaler.updateScale(this, videoWidth, videoHeight)
     }
 
+    private var pivotPinned = false
+
     override fun setVideoScale(scaleX: Float, scaleY: Float) {
+        if (pivotPinned) {
+            ProjectionViewScaler.releasePivot(this)
+            pivotPinned = false
+        }
         this.scaleX = scaleX
         this.scaleY = scaleY
         this.translationX = 0f
         this.translationY = 0f
+    }
+
+    override fun setVideoTransform(scaleX: Float, scaleY: Float, translationX: Float, translationY: Float) {
+        pivotX = 0f
+        pivotY = 0f
+        pivotPinned = true
+        this.scaleX = scaleX
+        this.scaleY = scaleY
+        this.translationX = translationX
+        this.translationY = translationY
     }
 
     // ----------------------------------------------------------------
