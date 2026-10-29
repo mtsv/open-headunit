@@ -548,6 +548,7 @@
     <string name="category_hide_aa_bar">Hide Android Auto bar</string>
     <string name="hide_aa_bar_button">Show hide-bar button</string>
     <string name="hide_aa_bar_button_description">A round button over the projection that pushes Android Auto\'s bar off the screen and brings it back. Android Auto shows its logo for about a second on each switch.</string>
+    <string name="hide_aa_bar_button_size">Button size</string>
     <string name="hide_aa_bar_button_opacity">Button opacity (active)</string>
     <string name="hide_aa_bar_button_faded_opacity">Button opacity (faded)</string>
     <string name="hide_aa_bar_area">Hidden area</string>

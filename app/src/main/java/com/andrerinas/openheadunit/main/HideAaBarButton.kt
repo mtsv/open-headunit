@@ -67,8 +67,11 @@ class HideAaBarButton(
     fun update(visible: Boolean, barHidden: Boolean) {
         view.setImageResource(if (barHidden) R.drawable.ic_hide_aa_bar_filled else R.drawable.ic_hide_aa_bar)
         if (visible == shown) {
-            // The opacity settings may just have changed.
-            if (shown) applyAlpha(fadeMs = 150L)
+            // The size and opacity settings may just have changed.
+            if (shown) {
+                place()
+                applyAlpha(fadeMs = 150L)
+            }
             return
         }
         shown = visible
@@ -101,7 +104,7 @@ class HideAaBarButton(
     }
 
     private fun sizePx(): Int =
-        (settings.floatingButtonSizeDp * density).roundToInt().coerceAtLeast((32 * density).roundToInt())
+        (settings.canvasExtensionButtonSizeDp * density).roundToInt().coerceAtLeast((32 * density).roundToInt())
 
     private fun place() {
         val w = container.width
