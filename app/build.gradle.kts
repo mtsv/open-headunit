@@ -109,7 +109,7 @@ android {
         // Assigning versionName a second time rather than editing the line above is deliberate.
         // Upstream's line stays byte-identical, so the version bumps that arrive in every merge
         // from main apply cleanly instead of conflicting on this line each time.
-        val forkRevision = 2
+        val forkRevision = 3
         versionName = "$versionName-$forkRevision"
         setProperty("archivesBaseName", "${applicationId}_${versionName}")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
