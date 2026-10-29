@@ -73,6 +73,7 @@ import com.andrerinas.openheadunit.main.HideAaBarButton
 import com.andrerinas.openheadunit.main.HideAaBarButtonPolicy
 import com.andrerinas.openheadunit.utils.CanvasExtensionPreviewPolicy
 import com.andrerinas.openheadunit.utils.MarginAnnouncementPolicy
+import com.andrerinas.openheadunit.utils.UiConfigAckPolicy
 import com.andrerinas.openheadunit.main.RenameNotice
 import com.andrerinas.openheadunit.main.Aa174Notice
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -165,6 +166,13 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         previewFirstPendingAtMs = 0L
         reannounceMargins()
     }
+
+    // The last UpdateUiConfigRequest until the phone answers it, resent on a timeout
+    // (UiConfigAckPolicy). Set from whichever thread sends or receives; the count and the timer
+    // live on the main thread, through the handler above.
+    @Volatile private var uiConfigAnswered = true
+    private var uiConfigSends = 0
+    private val uiConfigAckTimeoutRunnable = Runnable { onUiConfigAckTimeout() }
 
     /**
      * Asks for video while the surface the decoder holds has never shown a picture.
@@ -1166,6 +1174,8 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
                             // Discovery carries only margin totals, so it announced the normal
                             // ones; a session that starts with the AA bar hidden is switched now.
                             // Nothing is sent unless the wire margins differ from what went out.
+                            // This is before the phone's video is up and it may drop the request;
+                            // an unanswered one is sent again (UiConfigAckPolicy).
                             if (HeadUnitScreenConfig.getCanvasExtension() != null) onMarginsDiverged()
                         }
                         // The reconnect is answering. Each of these refreshes the grace.
@@ -1259,6 +1269,8 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
 
         commManager.onUpdateUiConfigReplyReceived = {
             AppLog.i("[UI_DEBUG_FIX] UpdateUiConfig reply received. AA acknowledged new margins.")
+            uiConfigAnswered = true
+            canvasExtensionHandler.post { canvasExtensionHandler.removeCallbacks(uiConfigAckTimeoutRunnable) }
         }
     }
 
@@ -2220,6 +2232,19 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
             return false
         }
         if (HeadUnitScreenConfig.marginsMatchAnnounced()) return true
+        sendWireMargins()
+        AppLog.i("[UI_DEBUG_FIX] AA is already running, send corrected via sendUpdateUiConfigRequest")
+        canvasExtensionHandler.post {
+            uiConfigSends = 1
+            canvasExtensionHandler.removeCallbacks(uiConfigAckTimeoutRunnable)
+            canvasExtensionHandler.postDelayed(uiConfigAckTimeoutRunnable, UiConfigAckPolicy.ACK_TIMEOUT_MS)
+        }
+        return true
+    }
+
+    private fun sendWireMargins() {
+        // Before the send: the reply can come back on the read thread before the call returns.
+        uiConfigAnswered = false
         commManager.sendUpdateUiConfigRequest(
             HeadUnitScreenConfig.getWireLeftMargin(),
             HeadUnitScreenConfig.getWireTopMargin(),
@@ -2227,8 +2252,27 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
             HeadUnitScreenConfig.getWireBottomMargin()
         )
         HeadUnitScreenConfig.recordAnnouncedWireMargins()
-        AppLog.i("[UI_DEBUG_FIX] AA is already running, send corrected via sendUpdateUiConfigRequest")
-        return true
+    }
+
+    /** The phone has not answered the last UpdateUiConfigRequest; it may not have been listening. */
+    private fun onUiConfigAckTimeout() {
+        val sessionLive = commManager.connectionState.value is CommManager.ConnectionState.TransportStarted
+        when (UiConfigAckPolicy.onTimeout(uiConfigAnswered, uiConfigSends, sessionLive)) {
+            UiConfigAckPolicy.Next.NOTHING -> {}
+            UiConfigAckPolicy.Next.GIVE_UP -> AppLog.w(
+                "[UI_DEBUG_FIX] The phone answered none of $uiConfigSends UpdateUiConfigRequests; " +
+                    "the picture may not match its layout until the next change"
+            )
+            UiConfigAckPolicy.Next.RESEND -> {
+                uiConfigSends++
+                AppLog.i(
+                    "[UI_DEBUG_FIX] No UpdateUiConfig reply in ${UiConfigAckPolicy.ACK_TIMEOUT_MS}ms; " +
+                        "sending the margins again ($uiConfigSends of ${UiConfigAckPolicy.MAX_SENDS})"
+                )
+                sendWireMargins()
+                canvasExtensionHandler.postDelayed(uiConfigAckTimeoutRunnable, UiConfigAckPolicy.ACK_TIMEOUT_MS)
+            }
+        }
     }
 
     /**
