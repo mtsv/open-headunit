@@ -27,4 +27,13 @@ object MarginAnnouncementPolicy {
         return announcedWidthMargin != liveWidthMargin || announcedHeightMargin != liveHeightMargin ||
             announcedTopLeft != liveTopLeft
     }
+
+    /**
+     * Whether a projection activity going away should forget what the phone was told. Only once
+     * the session is over: the next one's service discovery records its own. Android destroys and
+     * recreates the activity mid-session (another app in front, then back), and the phone still
+     * holds the last announcement; forgetting it made every later drift look like "nothing
+     * announced", so the hidden AA bar's <-> stopped reaching the phone after such a return.
+     */
+    fun forgetOnProjectionDestroy(sessionLive: Boolean): Boolean = !sessionLive
 }

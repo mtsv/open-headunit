@@ -72,6 +72,7 @@ import com.andrerinas.openheadunit.main.CanvasExtensionDialog
 import com.andrerinas.openheadunit.main.HideAaBarButton
 import com.andrerinas.openheadunit.main.HideAaBarButtonPolicy
 import com.andrerinas.openheadunit.utils.CanvasExtensionPreviewPolicy
+import com.andrerinas.openheadunit.utils.MarginAnnouncementPolicy
 import com.andrerinas.openheadunit.main.RenameNotice
 import com.andrerinas.openheadunit.main.Aa174Notice
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -145,6 +146,11 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
     private var isKeyEventReceiverRegistered = false
     private var isSettingsReceiverRegistered = false
     private var isHideAaBarReceiverRegistered = false
+
+    // This instance's screen-config listeners, kept as one object each so onDestroy can tell
+    // whether a recreated instance has already taken them over.
+    private val marginsDivergedHook: () -> Boolean = { onMarginsDiverged() }
+    private val fallbackAdoptedHook: () -> Unit = { onFallbackAdopted() }
 
     // "Hide Android Auto bar". The <-> button, created with the touch overlay it sits above.
     private var hideAaBarButton: HideAaBarButton? = null
@@ -1139,8 +1145,8 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
 
                             // Lock the resolution so that orientation changes don't cause re-negotiation
                             HeadUnitScreenConfig.lockResolution()
-                            HeadUnitScreenConfig.onMarginsDiverged = ::onMarginsDiverged
-                            HeadUnitScreenConfig.onFallbackAdopted = ::onFallbackAdopted
+                            HeadUnitScreenConfig.onMarginsDiverged = marginsDivergedHook
+                            HeadUnitScreenConfig.onFallbackAdopted = fallbackAdoptedHook
                             applyOrientationSettings()
 
                             // Handshake done. If the surface is already ready (e.g. reconnect
@@ -1153,6 +1159,10 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
                         }
                         is CommManager.ConnectionState.TransportStarted -> {
                             watchdogHandler.removeCallbacks(exitRunnable)
+                            // An instance created mid-session (back from another app) never sees
+                            // HandshakeComplete, so it takes the screen-config listeners here.
+                            HeadUnitScreenConfig.onMarginsDiverged = marginsDivergedHook
+                            HeadUnitScreenConfig.onFallbackAdopted = fallbackAdoptedHook
                             // Discovery carries only margin totals, so it announced the normal
                             // ones; a session that starts with the AA bar hidden is switched now.
                             // Nothing is sent unless the wire margins differ from what went out.
@@ -2503,9 +2513,22 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         super.onDestroy()
         autoStartOfferTimer?.cancel()
         autoStartOfferTimer = null
-        HeadUnitScreenConfig.onMarginsDiverged = null
-        HeadUnitScreenConfig.onFallbackAdopted = null
-        HeadUnitScreenConfig.clearAnnouncedMargins()
+        // A recreated instance may already hold these (its start can come before this onDestroy);
+        // only let go of our own.
+        if (HeadUnitScreenConfig.onMarginsDiverged === marginsDivergedHook) {
+            HeadUnitScreenConfig.onMarginsDiverged = null
+        }
+        if (HeadUnitScreenConfig.onFallbackAdopted === fallbackAdoptedHook) {
+            HeadUnitScreenConfig.onFallbackAdopted = null
+        }
+        val sessionLive = when (commManager.connectionState.value) {
+            is CommManager.ConnectionState.HandshakeComplete,
+            is CommManager.ConnectionState.TransportStarted -> true
+            else -> false
+        }
+        if (MarginAnnouncementPolicy.forgetOnProjectionDestroy(sessionLive)) {
+            HeadUnitScreenConfig.clearAnnouncedMargins()
+        }
         closeCallRaiseEpisode("the projection is going away")
         unregisterAudioModeListener()
         if (isFinishReceiverRegistered) {

@@ -33,6 +33,14 @@ class MarginAnnouncementPolicyTest {
         assertFalse(MarginAnnouncementPolicy.shouldReannounce(none, none, 0, 46, liveTopLeft = true))
     }
 
+    // Leaving for another app and coming back recreates the activity in the same session; the
+    // <-> then did nothing, because the destroyed instance had cleared the announcement.
+    @Test
+    fun `a projection recreated mid-session keeps the announcement`() {
+        assertFalse(MarginAnnouncementPolicy.forgetOnProjectionDestroy(sessionLive = true))
+        assertTrue(MarginAnnouncementPolicy.forgetOnProjectionDestroy(sessionLive = false))
+    }
+
     // Every recalculate before the capability message would otherwise look like a drift.
     @Test
     fun `nothing announced yet is not a drift`() {
