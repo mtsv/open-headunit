@@ -237,6 +237,16 @@ class Settings(private val context: Context) {
         get() = prefs.getInt("canvas-extension-button-y-percent", 0)
         set(value) { prefs.edit().putInt("canvas-extension-button-y-percent", value.coerceIn(0, 100)).apply() }
 
+    // The <-> button's opacity awake, and after it fades. Until set, active follows the Home
+    // button's opacity, which is what the <-> used before it had its own.
+    var canvasExtensionButtonOpacityPercent: Int
+        get() = prefs.getInt("canvas-extension-button-opacity-percent", floatingButtonOpacityPercent)
+        set(value) { prefs.edit().putInt("canvas-extension-button-opacity-percent", value.coerceIn(10, 100)).apply() }
+
+    var canvasExtensionButtonFadedOpacityPercent: Int
+        get() = prefs.getInt("canvas-extension-button-faded-opacity-percent", 20)
+        set(value) { prefs.edit().putInt("canvas-extension-button-faded-opacity-percent", value.coerceIn(5, 100)).apply() }
+
     // UI Scale percentage for Home
     var uiScaleHomePercent: Int
         get() = prefs.getInt("ui-scale-home-percent", 100)

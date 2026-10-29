@@ -66,7 +66,11 @@ class HideAaBarButton(
     /** [visible] is the policy's answer; [barHidden] picks the filled or the open icon. */
     fun update(visible: Boolean, barHidden: Boolean) {
         view.setImageResource(if (barHidden) R.drawable.ic_hide_aa_bar_filled else R.drawable.ic_hide_aa_bar)
-        if (visible == shown) return
+        if (visible == shown) {
+            // The opacity settings may just have changed.
+            if (shown) applyAlpha(fadeMs = 150L)
+            return
+        }
         shown = visible
         view.visibility = if (visible) View.VISIBLE else View.GONE
         if (visible) {
@@ -123,7 +127,11 @@ class HideAaBarButton(
     private fun isFaded(): Boolean = HideAaBarButtonPolicy.isFaded(lastWakeMs, SystemClock.elapsedRealtime())
 
     private fun applyAlpha(fadeMs: Long) {
-        val alpha = HideAaBarButtonPolicy.alpha(isFaded(), settings.floatingButtonOpacityPercent)
+        val alpha = HideAaBarButtonPolicy.alpha(
+            isFaded(),
+            settings.canvasExtensionButtonOpacityPercent,
+            settings.canvasExtensionButtonFadedOpacityPercent,
+        )
         view.animate().alpha(alpha).setDuration(fadeMs).start()
     }
 

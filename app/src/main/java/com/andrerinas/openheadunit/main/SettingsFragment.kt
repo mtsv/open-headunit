@@ -253,6 +253,8 @@ class SettingsFragment : Fragment() {
     private var pendingForcedScale: Boolean? = null
     private var pendingHudMirroring: Boolean? = null
     private var pendingCanvasExtensionEnabled: Boolean? = null
+    private var pendingCanvasExtensionButtonOpacityPercent: Int? = null
+    private var pendingCanvasExtensionButtonFadedOpacityPercent: Int? = null
     // In panel px; null while the dialog has not been used, since the px depend on the density.
     private var pendingCanvasExtensionPx: CanvasExtensionPolicy.Extension? = null
 
@@ -400,6 +402,8 @@ class SettingsFragment : Fragment() {
         pendingForcedScale = settings.forcedScale
         pendingHudMirroring = settings.hudMirroring
         pendingCanvasExtensionEnabled = settings.canvasExtensionEnabled
+        pendingCanvasExtensionButtonOpacityPercent = settings.canvasExtensionButtonOpacityPercent
+        pendingCanvasExtensionButtonFadedOpacityPercent = settings.canvasExtensionButtonFadedOpacityPercent
         pendingCanvasExtensionPx = null
 
         pendingKillOnDisconnect = settings.rawKillOnDisconnect
@@ -563,6 +567,8 @@ class SettingsFragment : Fragment() {
         pendingForcedScale = settings.forcedScale
         pendingHudMirroring = settings.hudMirroring
         pendingCanvasExtensionEnabled = settings.canvasExtensionEnabled
+        pendingCanvasExtensionButtonOpacityPercent = settings.canvasExtensionButtonOpacityPercent
+        pendingCanvasExtensionButtonFadedOpacityPercent = settings.canvasExtensionButtonFadedOpacityPercent
         pendingCanvasExtensionPx = null
         pendingKillOnDisconnect = settings.rawKillOnDisconnect
         pendingAutoKillOemApps = settings.autoKillOemApps
@@ -819,6 +825,12 @@ class SettingsFragment : Fragment() {
         pendingHudMirroring?.let { if (it != settings.hudMirroring) settings.hudMirroring = it }
         val canvasExtensionChanged = canvasExtensionPending()
         pendingCanvasExtensionEnabled?.let { if (it != settings.canvasExtensionEnabled) settings.canvasExtensionEnabled = it }
+        pendingCanvasExtensionButtonOpacityPercent?.let {
+            if (it != settings.canvasExtensionButtonOpacityPercent) settings.canvasExtensionButtonOpacityPercent = it
+        }
+        pendingCanvasExtensionButtonFadedOpacityPercent?.let {
+            if (it != settings.canvasExtensionButtonFadedOpacityPercent) settings.canvasExtensionButtonFadedOpacityPercent = it
+        }
         pendingCanvasExtensionPx?.let {
             if (it != storedCanvasExtensionPx()) {
                 settings.canvasExtension = CanvasExtensionPolicy.toStored(it, canvasExtensionDpi())
@@ -2384,6 +2396,38 @@ class SettingsFragment : Fragment() {
                 updateSettingsList()
             }
         ))
+
+        if (canvasExtensionEnabled) {
+            val activeOpacity = pendingCanvasExtensionButtonOpacityPercent ?: settings.canvasExtensionButtonOpacityPercent
+            items.add(SettingItem.SliderSettingEntry(
+                stableId = "canvasExtensionButtonOpacityPercent",
+                nameResId = R.string.hide_aa_bar_button_opacity,
+                value = "${activeOpacity}%",
+                sliderValue = activeOpacity.toFloat(),
+                valueFrom = HideAaBarButtonPolicy.MIN_ACTIVE_OPACITY_PERCENT.toFloat(),
+                valueTo = 100f,
+                stepSize = 5f,
+                onValueChanged = { newVal ->
+                    pendingCanvasExtensionButtonOpacityPercent = newVal.toInt()
+                    checkChanges()
+                }
+            ))
+
+            val fadedOpacity = pendingCanvasExtensionButtonFadedOpacityPercent ?: settings.canvasExtensionButtonFadedOpacityPercent
+            items.add(SettingItem.SliderSettingEntry(
+                stableId = "canvasExtensionButtonFadedOpacityPercent",
+                nameResId = R.string.hide_aa_bar_button_faded_opacity,
+                value = "${fadedOpacity}%",
+                sliderValue = fadedOpacity.toFloat(),
+                valueFrom = HideAaBarButtonPolicy.MIN_FADED_OPACITY_PERCENT.toFloat(),
+                valueTo = 100f,
+                stepSize = 5f,
+                onValueChanged = { newVal ->
+                    pendingCanvasExtensionButtonFadedOpacityPercent = newVal.toInt()
+                    checkChanges()
+                }
+            ))
+        }
 
         items.add(SettingItem.SettingEntry(
             stableId = "canvasExtensionArea",
@@ -4244,8 +4288,11 @@ class SettingsFragment : Fragment() {
     private fun storedCanvasExtensionPx(): CanvasExtensionPolicy.Extension =
         CanvasExtensionPolicy.toPanelPx(settings.canvasExtension, canvasExtensionDpi())
 
+    // Includes the button's opacities: the save's broadcast is what applies them to a running projection.
     private fun canvasExtensionPending(): Boolean =
         pendingCanvasExtensionEnabled != settings.canvasExtensionEnabled ||
+            pendingCanvasExtensionButtonOpacityPercent != settings.canvasExtensionButtonOpacityPercent ||
+            pendingCanvasExtensionButtonFadedOpacityPercent != settings.canvasExtensionButtonFadedOpacityPercent ||
             (pendingCanvasExtensionPx != null && pendingCanvasExtensionPx != storedCanvasExtensionPx())
 
     /**

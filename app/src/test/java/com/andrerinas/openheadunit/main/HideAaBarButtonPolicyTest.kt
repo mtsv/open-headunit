@@ -32,9 +32,18 @@ class HideAaBarButtonPolicyTest {
 
     @Test
     fun `faded is dimmer than awake but never invisible`() {
-        assertEquals(0.8f, HideAaBarButtonPolicy.alpha(faded = false, configuredOpacityPercent = 80), 1e-4f)
-        assertEquals(0.2f, HideAaBarButtonPolicy.alpha(faded = true, configuredOpacityPercent = 80), 1e-4f)
-        assertEquals(0.1f, HideAaBarButtonPolicy.alpha(faded = true, configuredOpacityPercent = 0), 1e-4f)
+        val faded = HideAaBarButtonPolicy.DEFAULT_FADED_OPACITY_PERCENT
+        assertEquals(0.8f, HideAaBarButtonPolicy.alpha(false, activeOpacityPercent = 80, fadedOpacityPercent = faded), 1e-4f)
+        assertEquals(0.2f, HideAaBarButtonPolicy.alpha(true, activeOpacityPercent = 80, fadedOpacityPercent = faded), 1e-4f)
+        assertEquals(0.1f, HideAaBarButtonPolicy.alpha(true, activeOpacityPercent = 0, fadedOpacityPercent = faded), 1e-4f)
+        assertEquals(0.05f, HideAaBarButtonPolicy.alpha(true, activeOpacityPercent = 80, fadedOpacityPercent = 0), 1e-4f)
+    }
+
+    @Test
+    fun `both levels are the user's, but faded never outshines active`() {
+        assertEquals(1.0f, HideAaBarButtonPolicy.alpha(false, activeOpacityPercent = 100, fadedOpacityPercent = 40), 1e-4f)
+        assertEquals(0.4f, HideAaBarButtonPolicy.alpha(true, activeOpacityPercent = 100, fadedOpacityPercent = 40), 1e-4f)
+        assertEquals(0.5f, HideAaBarButtonPolicy.alpha(true, activeOpacityPercent = 50, fadedOpacityPercent = 70), 1e-4f)
     }
 
     @Test

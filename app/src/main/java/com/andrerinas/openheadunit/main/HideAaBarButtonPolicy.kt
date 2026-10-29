@@ -14,8 +14,16 @@ object HideAaBarButtonPolicy {
 
     const val FADE_AFTER_MS = 5_000L
 
+    /**
+     * Defaults of the two opacity settings. Active follows the Home button's opacity until it is
+     * set on its own (Settings.canvasExtensionButtonOpacityPercent); faded is the 20% the button
+     * had before either was configurable.
+     */
+    const val DEFAULT_FADED_OPACITY_PERCENT = 20
+
     /** Faded but never invisible, so the way back to the rail can always be found. */
-    const val FADED_ALPHA = 0.2f
+    const val MIN_FADED_OPACITY_PERCENT = 5
+    const val MIN_ACTIVE_OPACITY_PERCENT = 10
 
     /** Default position (Q15): the top edge, centred. */
     const val DEFAULT_X_PERCENT = 50
@@ -32,10 +40,14 @@ object HideAaBarButtonPolicy {
 
     fun onTap(faded: Boolean): TapOutcome = if (faded) TapOutcome.WAKE else TapOutcome.TOGGLE
 
-    /** The configured opacity while awake; at most that while faded. */
-    fun alpha(faded: Boolean, configuredOpacityPercent: Int): Float {
-        val awake = (configuredOpacityPercent / 100f).coerceIn(0.1f, 1.0f)
-        return if (faded) minOf(FADED_ALPHA, awake) else awake
+    /**
+     * The active opacity while awake, the faded one after [FADE_AFTER_MS]. Faded is never brighter
+     * than active, so a faded button never looks pressable when the awake one does not.
+     */
+    fun alpha(faded: Boolean, activeOpacityPercent: Int, fadedOpacityPercent: Int): Float {
+        val awake = activeOpacityPercent.coerceIn(MIN_ACTIVE_OPACITY_PERCENT, 100) / 100f
+        if (!faded) return awake
+        return minOf(fadedOpacityPercent.coerceIn(MIN_FADED_OPACITY_PERCENT, 100) / 100f, awake)
     }
 
     /**
