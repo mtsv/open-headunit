@@ -1282,6 +1282,17 @@ class AapTransport(
             return
         }
 
+        // Handled by the projection activity, which runs the same toggle as its <-> button. On the
+        // press only: a release would switch it straight back.
+        if (keyCode == KeyCode.KEY_HIDE_AA_BAR) {
+            if (isPress) {
+                context.sendBroadcast(Intent(AapService.ACTION_TOGGLE_HIDE_AA_BAR).apply {
+                    setPackage(context.packageName)
+                })
+            }
+            return
+        }
+
         if (aapKeyCode == KeyEvent.KEYCODE_UNKNOWN) {
             AppLog.i("Unknown: $keyCode")
         }

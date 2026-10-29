@@ -68,6 +68,10 @@ import android.widget.VideoView
 import com.bumptech.glide.Glide
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.andrerinas.openheadunit.main.QuickSettingsFragment
+import com.andrerinas.openheadunit.main.CanvasExtensionDialog
+import com.andrerinas.openheadunit.main.HideAaBarButton
+import com.andrerinas.openheadunit.main.HideAaBarButtonPolicy
+import com.andrerinas.openheadunit.utils.CanvasExtensionPreviewPolicy
 import com.andrerinas.openheadunit.main.RenameNotice
 import com.andrerinas.openheadunit.main.Aa174Notice
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -79,7 +83,8 @@ import com.andrerinas.openheadunit.main.AppDrawerFragment
 import java.io.File
 import kotlin.math.abs
 
-class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, VideoDimensionsListener {
+class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, VideoDimensionsListener,
+    CanvasExtensionDialog.Preview {
 
     private enum class OverlayState { STARTING, RECONNECTING, HIDDEN }
 
@@ -139,6 +144,21 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
     private var isFinishReceiverRegistered = false
     private var isKeyEventReceiverRegistered = false
     private var isSettingsReceiverRegistered = false
+    private var isHideAaBarReceiverRegistered = false
+
+    // "Hide Android Auto bar". The <-> button, created with the touch overlay it sits above.
+    private var hideAaBarButton: HideAaBarButton? = null
+
+    // The values being tuned in the "Hidden area" dialog over this projection, shown with the bar
+    // hidden whatever the stored state says; null when no dialog is open. While it is set, the
+    // picture follows each change at once but the re-announce waits for the debounce.
+    private var canvasExtensionPreview: CanvasExtensionPolicy.Extension? = null
+    private var previewFirstPendingAtMs = 0L
+    private val canvasExtensionHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val previewReannounceRunnable = Runnable {
+        previewFirstPendingAtMs = 0L
+        reannounceMargins()
+    }
 
     /**
      * Asks for video while the surface the decoder holds has never shown a picture.
@@ -539,6 +559,7 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
 
             updateDesaturation(com.andrerinas.openheadunit.utils.NightMode(settings, false).current)
             applyCanvasExtension()
+            updateHideAaBarButton()
 
             if (settings.showPerformanceOverlay && !performanceOverlay.isAttached) {
                 attachPerformanceOverlay()
@@ -571,6 +592,10 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
             }
             isSurfaceSet = false
             setupProjectionView()
+            // The new view was added on top; the <-> goes back above it, and the view type
+            // may have changed whether it is offered at all.
+            hideAaBarButton?.bringToFront()
+            updateHideAaBarButton()
             val mirror = if (settings.hudMirroring) -1.0f else 1.0f
             findViewById<View>(R.id.loading_overlay)?.scaleX = mirror
             performanceOverlay.setMirror(mirror)
@@ -987,6 +1012,13 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         }
     }
 
+    // A key mapped to KEY_HIDE_AA_BAR, sent here by AapTransport.
+    private val hideAaBarReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == AapService.ACTION_TOGGLE_HIDE_AA_BAR) toggleHideAaBar("key")
+        }
+    }
+
     private val finishReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == "com.andrerinas.openheadunit.ACTION_FINISH_ACTIVITIES") {
@@ -1053,6 +1085,8 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
                 commManager.connectionState.collect { state ->
                     val first = isFirstEmission
                     isFirstEmission = false
+                    // The <-> is offered only over a running session.
+                    updateHideAaBarButton()
 
                     if (first && state is CommManager.ConnectionState.Disconnected) {
                         AppLog.i("AapProjectionActivity: Ignoring initial Disconnected state from StateFlow replay.")
@@ -1155,12 +1189,17 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         overlayView.setOnTouchListener { _, event ->
                 if (event.action == MotionEvent.ACTION_DOWN) {
                     overlayView.requestFocus()
+                    // Any touch on the picture brings a faded <-> back, without toggling it.
+                    hideAaBarButton?.wake()
                 }
                 sendTouchEvent(event)
                 true
             }
 
         container.addView(overlayView)
+        // Above the touch overlay, so its touches never reach Android Auto.
+        hideAaBarButton = HideAaBarButton(container, settings) { toggleHideAaBar("button") }
+        updateHideAaBarButton()
         overlayView.requestFocus()
         setFullscreen() // Call setFullscreen here as well
 
@@ -1238,6 +1277,10 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
             unregisterReceiver(nightModeReceiver)
             isNightModeReceiverRegistered = false
         }
+        if (isHideAaBarReceiverRegistered) {
+            unregisterReceiver(hideAaBarReceiver)
+            isHideAaBarReceiverRegistered = false
+        }
         if (isKeyEventReceiverRegistered) {
             unregisterReceiver(keyEventReceiver)
             isKeyEventReceiverRegistered = false
@@ -1296,6 +1339,9 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         // Register night mode receiver for AA monochrome filter
         ContextCompat.registerReceiver(this, nightModeReceiver, IntentFilter(AapService.ACTION_NIGHT_MODE_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
         isNightModeReceiverRegistered = true
+
+        ContextCompat.registerReceiver(this, hideAaBarReceiver, IntentFilter(AapService.ACTION_TOGGLE_HIDE_AA_BAR), ContextCompat.RECEIVER_NOT_EXPORTED)
+        isHideAaBarReceiverRegistered = true
 
         if (!isSettingsReceiverRegistered) {
             LocalBroadcastManager.getInstance(this).registerReceiver(settingsReceiver, IntentFilter(QuickSettingsFragment.ACTION_SETTINGS_CHANGED))
@@ -1808,6 +1854,7 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         App.isPiPActive = isInPictureInPictureMode
         // The small window shows the whole canvas, rail included; the bar comes back hidden after.
         applyCanvasExtension()
+        updateHideAaBarButton()
         if (isInPictureInPictureMode) {
             // Hide UI elements during PiP (like FPS counter, loading overlay)
             findViewById<View>(R.id.loading_overlay)?.visibility = View.GONE
@@ -2070,6 +2117,8 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
             reannounceMargins()
             // If transport not started yet, ServiceDiscoveryResponse will use the corrected values automatically.
         }
+        // A rotation to portrait takes the <-> away, and back to landscape returns it.
+        updateHideAaBarButton()
 
         when (commManager.connectionState.value) {
             is CommManager.ConnectionState.Connected -> {
@@ -2177,7 +2226,7 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
      * settling also means the scale was computed against the old reading. Re-announce and redraw.
      */
     private fun onMarginsDiverged(): Boolean {
-        val reannounced = reannounceMargins()
+        val reannounced = if (canvasExtensionPreview != null) deferPreviewReannounce() else reannounceMargins()
         runOnUiThread {
             val view = projectionView as? View ?: return@runOnUiThread
             ProjectionViewScaler.updateScale(view, videoDecoder.videoWidth, videoDecoder.videoHeight)
@@ -2193,8 +2242,19 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
      */
     private fun applyCanvasExtension() {
         if (!::projectionView.isInitialized) return
-        val ineligible = CanvasExtensionPolicy.ineligibility(
-            enabled = settings.canvasExtensionEnabled,
+        // A dialog tuning the values over this projection overrides the setting and the on/off.
+        val preview = canvasExtensionPreview
+        val ineligible = canvasExtensionIneligibility(enabled = preview != null || settings.canvasExtensionEnabled)
+        val extension = preview ?: storedCanvasExtension()
+        HeadUnitScreenConfig.setCanvasExtension(
+            CanvasExtensionPolicy.effective(ineligible, preview != null || settings.canvasExtensionActive, extension)
+        )
+    }
+
+    private fun canvasExtensionIneligibility(enabled: Boolean): CanvasExtensionPolicy.Ineligible? {
+        if (!::projectionView.isInitialized) return CanvasExtensionPolicy.Ineligible.NOT_ENABLED
+        return CanvasExtensionPolicy.ineligibility(
+            enabled = enabled,
             pip = App.isPiPActive,
             canvasW = HeadUnitScreenConfig.getUsableWidth(),
             canvasH = HeadUnitScreenConfig.getUsableHeight(),
@@ -2204,12 +2264,78 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
             isSurfaceView = projectionView is ProjectionView,
             sdkInt = Build.VERSION.SDK_INT,
         )
-        val extension = CanvasExtensionPolicy.toPanelPx(
-            settings.canvasExtension, HeadUnitScreenConfig.densityDecision().announced
+    }
+
+    private fun storedCanvasExtension(): CanvasExtensionPolicy.Extension =
+        CanvasExtensionPolicy.toPanelPx(settings.canvasExtension, HeadUnitScreenConfig.densityDecision().announced)
+
+    /** Shows or hides the <-> by HideAaBarButtonPolicy, with the icon of the stored on/off state. */
+    private fun updateHideAaBarButton() {
+        val button = hideAaBarButton ?: return
+        val transportStarted =
+            commManager.connectionState.value is CommManager.ConnectionState.TransportStarted
+        button.update(
+            visible = HideAaBarButtonPolicy.isVisible(
+                canvasExtensionIneligibility(settings.canvasExtensionEnabled), transportStarted,
+            ),
+            barHidden = settings.canvasExtensionActive,
         )
-        HeadUnitScreenConfig.setCanvasExtension(
-            CanvasExtensionPolicy.effective(ineligible, settings.canvasExtensionActive, extension)
+    }
+
+    /**
+     * The <-> button and the mapped key. The on/off state is a setting, so a reconnect or a
+     * restart comes back the same way. Nothing happens where the button would not be offered.
+     */
+    private fun toggleHideAaBar(source: String) {
+        val ineligible = canvasExtensionIneligibility(settings.canvasExtensionEnabled)
+        if (ineligible != null) {
+            AppLog.i("AapProjectionActivity: AA bar toggle from $source ignored ($ineligible)")
+            return
+        }
+        if (storedCanvasExtension().isZero) {
+            ToastUtils.showToast(this, getString(R.string.hide_aa_bar_no_area), Toast.LENGTH_LONG, force = true)
+            return
+        }
+        settings.canvasExtensionActive = !settings.canvasExtensionActive
+        AppLog.i("AapProjectionActivity: AA bar ${if (settings.canvasExtensionActive) "hidden" else "shown"} by $source")
+        applyCanvasExtension()
+        updateHideAaBarButton()
+    }
+
+    override fun canvasExtensionBlockedBy(): CanvasExtensionPolicy.Ineligible? =
+        canvasExtensionIneligibility(enabled = true)
+
+    override fun previewCanvasExtension(ext: CanvasExtensionPolicy.Extension) {
+        canvasExtensionPreview = ext
+        applyCanvasExtension()
+    }
+
+    override fun endCanvasExtensionPreview() {
+        if (canvasExtensionPreview == null) return
+        canvasExtensionPreview = null
+        canvasExtensionHandler.removeCallbacks(previewReannounceRunnable)
+        previewFirstPendingAtMs = 0L
+        applyCanvasExtension()
+        // When the stored values are the ones last previewed nothing changes above, and what the
+        // debounce was holding back is sent here; when the wire already matches, nothing is.
+        onMarginsDiverged()
+        updateHideAaBarButton()
+    }
+
+    /**
+     * The preview's re-announce, held back by CanvasExtensionPreviewPolicy: every one costs a
+     * second of Android Auto's logo screen, and holding ± would otherwise flash it on each step.
+     * False until it is sent, which keeps the old announcement standing.
+     */
+    private fun deferPreviewReannounce(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (previewFirstPendingAtMs == 0L) previewFirstPendingAtMs = now
+        canvasExtensionHandler.removeCallbacks(previewReannounceRunnable)
+        canvasExtensionHandler.postDelayed(
+            previewReannounceRunnable,
+            CanvasExtensionPreviewPolicy.delayMs(now, previewFirstPendingAtMs),
         )
+        return false
     }
 
     /** Called from the receive thread; the layout belongs to the UI thread. */
@@ -2362,6 +2488,11 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
     }
 
     override fun onDestroy() {
+        // An unsent preview re-announce dies with the activity; the next one re-reads the settings.
+        canvasExtensionHandler.removeCallbacksAndMessages(null)
+        canvasExtensionPreview = null
+        hideAaBarButton?.release()
+        hideAaBarButton = null
         // TextureView/GLES destruction can arrive after this activity removes its callback.
         // Stop our target now, while it is still valid, without touching a replacement owner.
         ownedSurface?.let {

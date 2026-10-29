@@ -65,6 +65,8 @@ import com.andrerinas.openheadunit.utils.AppLog
 import com.andrerinas.openheadunit.utils.AppPermissions
 import com.andrerinas.openheadunit.utils.AppThemeManager
 import com.andrerinas.openheadunit.utils.Settings
+import com.andrerinas.openheadunit.utils.CanvasExtensionPolicy
+import com.andrerinas.openheadunit.utils.HeadUnitScreenConfig
 import com.andrerinas.openheadunit.view.PerformanceOverlayField
 import com.andrerinas.openheadunit.view.PerformanceOverlayPolicy
 import com.andrerinas.openheadunit.utils.LocaleHelper
@@ -250,6 +252,9 @@ class SettingsFragment : Fragment() {
     private var pendingVideoFitMode: Settings.VideoFitMode? = null
     private var pendingForcedScale: Boolean? = null
     private var pendingHudMirroring: Boolean? = null
+    private var pendingCanvasExtensionEnabled: Boolean? = null
+    // In panel px; null while the dialog has not been used, since the px depend on the density.
+    private var pendingCanvasExtensionPx: CanvasExtensionPolicy.Extension? = null
 
     private var pendingKillOnDisconnect: Boolean? = null
     private var pendingAutoKillOemApps: Boolean? = null
@@ -394,6 +399,8 @@ class SettingsFragment : Fragment() {
         pendingVideoFitMode = settings.videoFitMode
         pendingForcedScale = settings.forcedScale
         pendingHudMirroring = settings.hudMirroring
+        pendingCanvasExtensionEnabled = settings.canvasExtensionEnabled
+        pendingCanvasExtensionPx = null
 
         pendingKillOnDisconnect = settings.rawKillOnDisconnect
         pendingAutoKillOemApps = settings.autoKillOemApps
@@ -555,6 +562,8 @@ class SettingsFragment : Fragment() {
         pendingVideoFitMode = settings.videoFitMode
         pendingForcedScale = settings.forcedScale
         pendingHudMirroring = settings.hudMirroring
+        pendingCanvasExtensionEnabled = settings.canvasExtensionEnabled
+        pendingCanvasExtensionPx = null
         pendingKillOnDisconnect = settings.rawKillOnDisconnect
         pendingAutoKillOemApps = settings.autoKillOemApps
         pendingRaiseProjectionDuringCall = settings.raiseProjectionDuringCall
@@ -808,6 +817,14 @@ class SettingsFragment : Fragment() {
         pendingVideoFitMode?.let { if (it != settings.videoFitMode) settings.videoFitMode = it }
         pendingForcedScale?.let { if (it != settings.forcedScale) settings.forcedScale = it }
         pendingHudMirroring?.let { if (it != settings.hudMirroring) settings.hudMirroring = it }
+        val canvasExtensionChanged = canvasExtensionPending()
+        pendingCanvasExtensionEnabled?.let { if (it != settings.canvasExtensionEnabled) settings.canvasExtensionEnabled = it }
+        pendingCanvasExtensionPx?.let {
+            if (it != storedCanvasExtensionPx()) {
+                settings.canvasExtension = CanvasExtensionPolicy.toStored(it, canvasExtensionDpi())
+            }
+        }
+        pendingCanvasExtensionPx = null
 
         pendingKillOnDisconnect?.let { if (it != settings.rawKillOnDisconnect) settings.rawKillOnDisconnect = it }
         pendingAutoKillOemApps?.let { if (it != settings.autoKillOemApps) settings.autoKillOemApps = it }
@@ -869,6 +886,12 @@ class SettingsFragment : Fragment() {
             LocalBroadcastManager.getInstance(requireContext()).sendBroadcast(
                 Intent(QuickSettingsFragment.ACTION_SETTINGS_CHANGED)
                     .putExtra(QuickSettingsFragment.EXTRA_NEEDS_VIEW_RECREATE, true)
+            )
+        } else if (canvasExtensionChanged && !requiresServiceRestart) {
+            // "Hide Android Auto bar" changes nothing at discovery, so a running projection
+            // re-reads it from the same broadcast and re-announces its margins.
+            LocalBroadcastManager.getInstance(requireContext()).sendBroadcast(
+                Intent(QuickSettingsFragment.ACTION_SETTINGS_CHANGED)
             )
         }
 
@@ -957,6 +980,7 @@ class SettingsFragment : Fragment() {
                         pendingVideoFitMode != settings.videoFitMode ||
                         pendingForcedScale != settings.forcedScale ||
                         pendingHudMirroring != settings.hudMirroring ||
+                        canvasExtensionPending() ||
                         pendingInsetLeft != settings.insetLeft ||
                         pendingInsetTop != settings.insetTop ||
                         pendingInsetRight != settings.insetRight ||
@@ -2342,6 +2366,47 @@ class SettingsFragment : Fragment() {
                 }
             ))
         }
+
+        // --- Hide Android Auto bar (features/fullscreen-plan.md §5.2) ---
+        items.add(SettingItem.CategoryHeader("hideAaBar", R.string.category_hide_aa_bar))
+
+        val canvasExtensionEnabled = pendingCanvasExtensionEnabled ?: settings.canvasExtensionEnabled
+        val canvasExtensionReason = CanvasExtensionDialog.reason(requireContext(), canvasExtensionSettingsIneligibility())
+        items.add(SettingItem.ToggleSettingEntry(
+            stableId = "canvasExtensionEnabled",
+            nameResId = R.string.hide_aa_bar_button,
+            descriptionResId = R.string.hide_aa_bar_button_description,
+            descriptionOverride = canvasExtensionReason?.takeIf { canvasExtensionEnabled },
+            isChecked = canvasExtensionEnabled,
+            onCheckedChanged = { isChecked ->
+                pendingCanvasExtensionEnabled = isChecked
+                checkChanges()
+                updateSettingsList()
+            }
+        ))
+
+        items.add(SettingItem.SettingEntry(
+            stableId = "canvasExtensionArea",
+            nameResId = R.string.hide_aa_bar_area,
+            value = CanvasExtensionDialog.summary(
+                requireContext(), pendingCanvasExtensionPx ?: storedCanvasExtensionPx()
+            ),
+            onClick = { _ ->
+                val config = HeadUnitScreenConfig
+                CanvasExtensionDialog.show(
+                    requireContext(),
+                    initial = pendingCanvasExtensionPx ?: storedCanvasExtensionPx(),
+                    // The feature is landscape-only, whichever way up Settings happens to be.
+                    panelW = maxOf(config.getUsableWidth(), config.getUsableHeight()),
+                    panelH = minOf(config.getUsableWidth(), config.getUsableHeight()),
+                    preview = null,
+                ) { ext ->
+                    pendingCanvasExtensionPx = ext
+                    checkChanges()
+                    updateSettingsList()
+                }
+            }
+        ))
 
         // --- Theming Settings ---
         items.add(SettingItem.CategoryHeader("theming", R.string.category_theming))
@@ -4170,26 +4235,52 @@ class SettingsFragment : Fragment() {
             .show()
     }
 
+    /** The density the hidden AA bar's px are converted at; the projection uses the same one. */
+    private fun canvasExtensionDpi(): Int {
+        HeadUnitScreenConfig.ensureInitializedForSettings(requireContext(), settings)
+        return HeadUnitScreenConfig.densityDecision().announced
+    }
+
+    private fun storedCanvasExtensionPx(): CanvasExtensionPolicy.Extension =
+        CanvasExtensionPolicy.toPanelPx(settings.canvasExtension, canvasExtensionDpi())
+
+    private fun canvasExtensionPending(): Boolean =
+        pendingCanvasExtensionEnabled != settings.canvasExtensionEnabled ||
+            (pendingCanvasExtensionPx != null && pendingCanvasExtensionPx != storedCanvasExtensionPx())
+
+    /**
+     * The rules Settings can judge from its own pending values. Picture-in-picture and the canvas
+     * being landscape move during a session, so they are left to the projection.
+     */
+    private fun canvasExtensionSettingsIneligibility(): CanvasExtensionPolicy.Ineligible? {
+        val viewMode = pendingViewMode ?: settings.viewMode
+        val surfaceView = viewMode == Settings.ViewMode.SURFACE
+        return CanvasExtensionPolicy.ineligibility(
+            enabled = true,
+            pip = false,
+            canvasW = 1,
+            canvasH = 0,
+            hudMirroring = pendingHudMirroring ?: settings.hudMirroring,
+            fitMode = pendingVideoFitMode ?: settings.videoFitMode,
+            forcedScale = surfaceView && (pendingForcedScale ?: settings.forcedScale),
+            isSurfaceView = surfaceView,
+            sdkInt = Build.VERSION.SDK_INT,
+        )
+    }
+
     private fun showCustomInsetsDialog() {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_custom_insets, null)
 
-        val inputLeft = dialogView.findViewById<EditText>(R.id.input_left)
-        val inputTop = dialogView.findViewById<EditText>(R.id.input_top)
-        val inputRight = dialogView.findViewById<EditText>(R.id.input_right)
-        val inputBottom = dialogView.findViewById<EditText>(R.id.input_bottom)
-
-        // Set initial values from pending state
-        inputLeft.setText((pendingInsetLeft ?: 0).toString())
-        inputTop.setText((pendingInsetTop ?: 0).toString())
-        inputRight.setText((pendingInsetRight ?: 0).toString())
-        inputBottom.setText((pendingInsetBottom ?: 0).toString())
+        // The previewed values live in the pending state, so updatePreview is declared before
+        // the fields that call it and reads them through this late reference.
+        lateinit var fields: InsetFieldsBinder
 
         // Helper to update pending values and UI preview
         fun updatePreview() {
-            val l = inputLeft.text.toString().toIntOrNull() ?: 0
-            val t = inputTop.text.toString().toIntOrNull() ?: 0
-            val r = inputRight.text.toString().toIntOrNull() ?: 0
-            val b = inputBottom.text.toString().toIntOrNull() ?: 0
+            val l = fields.read(fields.left)
+            val t = fields.read(fields.top)
+            val r = fields.read(fields.right)
+            val b = fields.read(fields.bottom)
 
             pendingInsetLeft = l
             pendingInsetTop = t
@@ -4201,43 +4292,23 @@ class SettingsFragment : Fragment() {
             root?.setPadding(l, t, r, b)
         }
 
-        // Helper to bind buttons
-        fun bindButton(btnId: Int, input: EditText, delta: Int) {
-            dialogView.findViewById<View>(btnId).setOnClickListener {
-                val current = input.text.toString().toIntOrNull() ?: 0
-                val newVal = (current + delta).coerceAtLeast(0)
-                input.setText(newVal.toString())
-                updatePreview()
-            }
-        }
+        fields = InsetFieldsBinder(dialogView) { updatePreview() }
+        val inputLeft = fields.left
 
-        bindButton(R.id.btn_left_minus, inputLeft, -10)
-        bindButton(R.id.btn_left_plus, inputLeft, 10)
-        bindButton(R.id.btn_top_minus, inputTop, -10)
-        bindButton(R.id.btn_top_plus, inputTop, 10)
-        bindButton(R.id.btn_right_minus, inputRight, -10)
-        bindButton(R.id.btn_right_plus, inputRight, 10)
-        bindButton(R.id.btn_bottom_minus, inputBottom, -10)
-        bindButton(R.id.btn_bottom_plus, inputBottom, 10)
-
-        // Text Watchers? Maybe overkill, buttons are safer.
-        // Let's add simple focus change listener to update preview on manual entry
-        val focusListener = View.OnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) updatePreview()
-        }
-        inputLeft.onFocusChangeListener = focusListener
-        inputTop.onFocusChangeListener = focusListener
-        inputRight.onFocusChangeListener = focusListener
-        inputBottom.onFocusChangeListener = focusListener
+        // Set initial values from pending state
+        fields.set(fields.left, pendingInsetLeft ?: 0)
+        fields.set(fields.top, pendingInsetTop ?: 0)
+        fields.set(fields.right, pendingInsetRight ?: 0)
+        fields.set(fields.bottom, pendingInsetBottom ?: 0)
 
         val dialog = MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
             .setTitle(R.string.custom_insets)
             .setView(dialogView)
             .setPositiveButton(android.R.string.ok) { dialog, _ ->
-                val l = inputLeft.text.toString().toIntOrNull() ?: 0
-                val t = inputTop.text.toString().toIntOrNull() ?: 0
-                val r = inputRight.text.toString().toIntOrNull() ?: 0
-                val b = inputBottom.text.toString().toIntOrNull() ?: 0
+                val l = fields.read(fields.left)
+                val t = fields.read(fields.top)
+                val r = fields.read(fields.right)
+                val b = fields.read(fields.bottom)
 
                 // PERSIST IMMEDIATELY (Rescue Mode)
                 settings.insetLeft = l

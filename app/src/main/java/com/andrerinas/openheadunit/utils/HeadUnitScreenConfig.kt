@@ -784,6 +784,17 @@ object HeadUnitScreenConfig {
             .takeUnless { it.isZero }
     }
 
+    /**
+     * Readies the screen config for the hidden AA bar's Settings rows, which turn px into dp at
+     * the announced density and cap them by the canvas. Settings can open before anything has
+     * initialized it; nothing is running then, so initializing it here moves no announced margin.
+     */
+    fun ensureInitializedForSettings(context: Context, settings: Settings) {
+        if (!this::currentSettings.isInitialized) {
+            init(context, context.resources.displayMetrics, settings)
+        }
+    }
+
     /** AA's canvas while the bar is hidden, against the normal margins of the session; null otherwise. */
     fun getCanvasExtensionLayout(): CanvasExtensionPolicy.Layout? {
         val ext = getCanvasExtension() ?: return null

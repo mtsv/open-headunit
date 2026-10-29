@@ -544,6 +544,24 @@
     <string name="hud_mirroring">HUD Mode (Horizontal Flip)</string>
     <string name="hud_mirroring_description">Flips the display horizontally for windshield reflection (Head-Up Display). Requires TextureView or GLES20 view mode (does not work with SurfaceView).</string>
 
+    <!-- Hide Android Auto bar -->
+    <string name="category_hide_aa_bar">Hide Android Auto bar</string>
+    <string name="hide_aa_bar_button">Show hide-bar button</string>
+    <string name="hide_aa_bar_button_description">A round button over the projection that pushes Android Auto\'s bar off the screen and brings it back. Android Auto shows its logo for about a second on each switch.</string>
+    <string name="hide_aa_bar_area">Hidden area</string>
+    <string name="hide_aa_bar_area_value">L %1$d · R %2$d · B %3$d</string>
+    <string name="hide_aa_bar_area_message">Screen pixels to push off each edge. Raise the side the bar is on until it just disappears. At most %1$d px left and right, %2$d px at the bottom.</string>
+    <string name="hide_aa_bar_area_message_live">Changes show on the projection as you make them. Raise the side the bar is on until it just disappears. At most %1$d px left and right, %2$d px at the bottom.</string>
+    <string name="hide_aa_bar_no_area">Set the hidden area in Settings first</string>
+    <string name="hide_aa_bar_toggle">Hide or show the Android Auto bar</string>
+    <string name="hide_aa_bar_why_pip">Not available in picture-in-picture</string>
+    <string name="hide_aa_bar_why_portrait">Landscape only</string>
+    <string name="hide_aa_bar_why_hud">Not available with HUD mode</string>
+    <string name="hide_aa_bar_why_fit">Needs Video fit mode = Fill</string>
+    <string name="hide_aa_bar_why_forced_scale">Not available with Forced Scale</string>
+    <string name="hide_aa_bar_why_old_surface">SurfaceView needs Android 7; use TextureView or GLES20</string>
+    <string name="key_hide_aa_bar">Hide / Show Android Auto Bar</string>
+
 
     <!-- Audio Settings -->
     <string name="category_audio">Audio</string>

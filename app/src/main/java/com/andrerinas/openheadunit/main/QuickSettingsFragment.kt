@@ -17,6 +17,8 @@ import com.andrerinas.openheadunit.main.settings.SettingItem
 import com.andrerinas.openheadunit.main.settings.SettingsAdapter
 import com.andrerinas.openheadunit.utils.Settings
 import com.andrerinas.openheadunit.utils.AppLog
+import com.andrerinas.openheadunit.utils.CanvasExtensionPolicy
+import com.andrerinas.openheadunit.utils.HeadUnitScreenConfig
 import android.widget.Toast
 import com.andrerinas.openheadunit.utils.LogExporter
 import com.andrerinas.openheadunit.utils.ToastUtils
@@ -195,6 +197,32 @@ class QuickSettingsFragment : DialogFragment() {
             }
         ))
 
+        // --- Hide Android Auto bar: tuned here because the projection is right behind ---
+        items.add(SettingItem.CategoryHeader("hideAaBar", R.string.category_hide_aa_bar))
+
+        items.add(SettingItem.ToggleSettingEntry(
+            stableId = "canvasExtensionEnabled",
+            nameResId = R.string.hide_aa_bar_button,
+            descriptionResId = R.string.hide_aa_bar_button_description,
+            descriptionOverride = canvasExtensionPreview()
+                ?.let { CanvasExtensionDialog.reason(requireContext(), it.canvasExtensionBlockedBy()) }
+                ?.takeIf { settings.canvasExtensionEnabled },
+            isChecked = settings.canvasExtensionEnabled,
+            onCheckedChanged = { isChecked ->
+                settings.canvasExtensionEnabled = isChecked
+                settings.commit()
+                notifyChange()
+                updateSettingsList()
+            }
+        ))
+
+        items.add(SettingItem.SettingEntry(
+            stableId = "canvasExtensionArea",
+            nameResId = R.string.hide_aa_bar_area,
+            value = CanvasExtensionDialog.summary(requireContext(), storedCanvasExtensionPx()),
+            onClick = { showCanvasExtensionDialog() }
+        ))
+
         // --- System & Safety ---
         items.add(SettingItem.CategoryHeader("system", R.string.category_automation))
 
@@ -249,6 +277,54 @@ class QuickSettingsFragment : DialogFragment() {
             putExtra(EXTRA_APPLY_FULLSCREEN, applyFullscreen)
         }
         LocalBroadcastManager.getInstance(requireContext()).sendBroadcast(intent)
+    }
+
+    /** The projection this sheet was opened over, which can show the hidden area as it is tuned. */
+    private fun canvasExtensionPreview(): CanvasExtensionDialog.Preview? =
+        activity as? CanvasExtensionDialog.Preview
+
+    private fun storedCanvasExtensionPx(): CanvasExtensionPolicy.Extension =
+        CanvasExtensionPolicy.toPanelPx(
+            settings.canvasExtension, HeadUnitScreenConfig.densityDecision().announced
+        )
+
+    /**
+     * Tuned live while the projection allows it. This sheet covers the projection, so it steps
+     * aside until the dialog closes. OK keeps the values and leaves the bar hidden, which is what
+     * the user was just looking at; Cancel puts back the stored values and the on/off state.
+     */
+    private fun showCanvasExtensionDialog() {
+        val host = canvasExtensionPreview()
+        val preview = host?.takeIf { it.canvasExtensionBlockedBy() == null }
+        val sheet = dialog
+        val dpi = HeadUnitScreenConfig.densityDecision().announced
+        if (preview != null) sheet?.hide()
+        CanvasExtensionDialog.show(
+            requireContext(),
+            initial = storedCanvasExtensionPx(),
+            panelW = HeadUnitScreenConfig.getUsableWidth(),
+            panelH = HeadUnitScreenConfig.getUsableHeight(),
+            preview = preview?.let { p ->
+                object : CanvasExtensionDialog.Preview by p {
+                    override fun endCanvasExtensionPreview() {
+                        p.endCanvasExtensionPreview()
+                        if (isAdded) {
+                            sheet?.show()
+                            updateSettingsList()
+                        }
+                    }
+                }
+            },
+        ) { ext ->
+            settings.canvasExtension = CanvasExtensionPolicy.toStored(ext, dpi)
+            settings.canvasExtensionActive = !ext.isZero
+            settings.commit()
+            AppLog.i("QuickSettings: AA bar hidden area set to $ext")
+            if (preview == null) {
+                notifyChange()
+                updateSettingsList()
+            }
+        }
     }
 
     private fun fullscreenModeLabels() = arrayOf(

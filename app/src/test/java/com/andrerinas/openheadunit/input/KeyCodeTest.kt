@@ -124,6 +124,14 @@ class KeyCodeTest {
     }
 
     @Test
+    fun `the local hide-bar key is never announced to the phone and collides with nothing`() {
+        assertFalse(KeyCode.supported.contains(KeyCode.KEY_HIDE_AA_BAR))
+        assertEquals(KeyEvent.KEYCODE_UNKNOWN, KeyCode.convert(KeyCode.KEY_HIDE_AA_BAR))
+        // Clear of the rotary controller's 65536-65538 and of the night key.
+        assertFalse(KeyCode.KEY_HIDE_AA_BAR in setOf(65536, 65537, 65538, KeyCode.KEY_NIGHT_MODE))
+    }
+
+    @Test
     fun `a legacy night mapping under KEYCODE_N moves to KEY_NIGHT_MODE`() {
         val legacy = mapOf(KeyEvent.KEYCODE_N to 300, KeyEvent.KEYCODE_HOME to 301)
         assertEquals(

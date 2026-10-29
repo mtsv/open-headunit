@@ -63,6 +63,7 @@ class KeymapFragment : Fragment(), MainActivity.KeyListener {
         KeymapItem(R.string.key_music, KeyEvent.KEYCODE_MUSIC),
         KeymapItem(R.string.key_nav, 65538),
         KeymapItem(R.string.key_night, KeyCode.KEY_NIGHT_MODE),
+        KeymapItem(R.string.key_hide_aa_bar, KeyCode.KEY_HIDE_AA_BAR),
         KeymapItem(R.string.key_enter, KeyEvent.KEYCODE_ENTER),
         KeymapItem(R.string.key_home, KeyEvent.KEYCODE_HOME),
         KeymapItem(R.string.key_app_switch, KeyEvent.KEYCODE_APP_SWITCH),

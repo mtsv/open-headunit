@@ -8,6 +8,12 @@ object KeyCode {
 
     const val KEY_NIGHT_MODE = 65539
 
+    /**
+     * "Hide Android Auto bar", toggled locally like [KEY_NIGHT_MODE] and never sent to the phone.
+     * The next pseudo-code after it; 65536-65538 are the rotary controller's.
+     */
+    const val KEY_HIDE_AA_BAR = 65540
+
     val supported = listOf(
         // Standard Android KeyEvents used in the convert method or common
         KeyEvent.KEYCODE_SOFT_LEFT,
