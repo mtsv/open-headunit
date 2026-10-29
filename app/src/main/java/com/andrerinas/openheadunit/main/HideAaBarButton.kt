@@ -23,8 +23,8 @@ import kotlin.math.roundToInt
  * (features/fullscreen-plan.md §6). The decisions are HideAaBarButtonPolicy's; this is the view.
  *
  * It lives in the projection activity's own layout, above the touch overlay, so its touches never
- * reach Android Auto and it needs no overlay permission. It looks like the Home button (same
- * background, size and opacity settings) but has its own place: a long press starts a drag, and
+ * reach Android Auto and it needs no overlay permission. It has its own solid background, size
+ * and opacity settings, and its own place: a long press starts a drag, and
  * where it ends is saved as a percent of the room left, so a later window size keeps it on screen.
  */
 @SuppressLint("ClickableViewAccessibility")
@@ -42,7 +42,7 @@ class HideAaBarButton(
     private val view = ImageView(context).apply {
         setImageResource(R.drawable.ic_hide_aa_bar)
         scaleType = ImageView.ScaleType.FIT_CENTER
-        setBackgroundResource(R.drawable.bg_floating_button)
+        setBackgroundResource(R.drawable.bg_hide_aa_bar_button)
         contentDescription = context.getString(R.string.hide_aa_bar_toggle)
         visibility = View.GONE
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
