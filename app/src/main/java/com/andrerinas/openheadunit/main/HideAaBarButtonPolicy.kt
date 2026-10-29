@@ -12,7 +12,17 @@ object HideAaBarButtonPolicy {
 
     enum class TapOutcome { WAKE, TOGGLE }
 
-    const val FADE_AFTER_MS = 5_000L
+    /**
+     * How long the button stays active after a touch (Settings.canvasExtensionButtonFadeAfterSeconds).
+     * 5 s was the fixed value before it was a setting. 0 keeps it active for good: it never fades,
+     * so every tap toggles.
+     */
+    const val DEFAULT_FADE_AFTER_SECONDS = 5
+    const val MAX_FADE_AFTER_SECONDS = 60
+
+    /** When the button fades after a wake, in ms; null when it never does. */
+    fun fadeAfterMs(fadeAfterSeconds: Int): Long? =
+        if (fadeAfterSeconds <= 0) null else fadeAfterSeconds.coerceAtMost(MAX_FADE_AFTER_SECONDS) * 1_000L
 
     /**
      * Defaults of the two opacity settings. Active follows the Home button's opacity until it is
@@ -40,12 +50,15 @@ object HideAaBarButtonPolicy {
     fun isVisible(ineligible: CanvasExtensionPolicy.Ineligible?, transportStarted: Boolean): Boolean =
         ineligible == null && transportStarted
 
-    fun isFaded(lastWakeMs: Long, nowMs: Long): Boolean = nowMs - lastWakeMs >= FADE_AFTER_MS
+    fun isFaded(lastWakeMs: Long, nowMs: Long, fadeAfterSeconds: Int = DEFAULT_FADE_AFTER_SECONDS): Boolean {
+        val fadeAfterMs = fadeAfterMs(fadeAfterSeconds) ?: return false
+        return nowMs - lastWakeMs >= fadeAfterMs
+    }
 
     fun onTap(faded: Boolean): TapOutcome = if (faded) TapOutcome.WAKE else TapOutcome.TOGGLE
 
     /**
-     * The active opacity while awake, the faded one after [FADE_AFTER_MS]. Faded is never brighter
+     * The active opacity while awake, the faded one after [fadeAfterMs]. Faded is never brighter
      * than active, so a faded button never looks pressable when the awake one does not.
      */
     fun alpha(faded: Boolean, activeOpacityPercent: Int, fadedOpacityPercent: Int): Float {

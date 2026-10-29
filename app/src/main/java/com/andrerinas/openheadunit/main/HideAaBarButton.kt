@@ -78,10 +78,11 @@ class HideAaBarButton(
         val icon = if (barHidden) filledIcon else openIcon
         if (view.drawable !== icon) view.setImageDrawable(icon)
         if (visible == shown) {
-            // The size and opacity settings may just have changed.
+            // The size, opacity and fade settings may just have changed.
             if (shown) {
                 place()
                 applyAlpha(fadeMs = 150L)
+                scheduleFade()
             }
             return
         }
@@ -100,8 +101,15 @@ class HideAaBarButton(
         if (!shown) return
         lastWakeMs = SystemClock.elapsedRealtime()
         applyAlpha(fadeMs = 150L)
+        scheduleFade()
+    }
+
+    /** The fade, timed from the last wake; none when the button is set to stay active. */
+    private fun scheduleFade() {
         handler.removeCallbacks(fadeRunnable)
-        handler.postDelayed(fadeRunnable, HideAaBarButtonPolicy.FADE_AFTER_MS)
+        val fadeAfterMs = HideAaBarButtonPolicy.fadeAfterMs(settings.canvasExtensionButtonFadeAfterSeconds) ?: return
+        val remaining = lastWakeMs + fadeAfterMs - SystemClock.elapsedRealtime()
+        handler.postDelayed(fadeRunnable, remaining.coerceAtLeast(0L))
     }
 
     /** A recreated projection view is added on top of the container; the button goes back above it. */
@@ -140,7 +148,9 @@ class HideAaBarButton(
         view.translationY = y.toFloat()
     }
 
-    private fun isFaded(): Boolean = HideAaBarButtonPolicy.isFaded(lastWakeMs, SystemClock.elapsedRealtime())
+    private fun isFaded(): Boolean = HideAaBarButtonPolicy.isFaded(
+        lastWakeMs, SystemClock.elapsedRealtime(), settings.canvasExtensionButtonFadeAfterSeconds,
+    )
 
     private fun applyAlpha(fadeMs: Long) {
         val alpha = HideAaBarButtonPolicy.alpha(

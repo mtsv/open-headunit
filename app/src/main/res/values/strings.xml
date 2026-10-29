@@ -551,6 +551,9 @@
     <string name="hide_aa_bar_button_size">Button size</string>
     <string name="hide_aa_bar_button_opacity">Button opacity (active)</string>
     <string name="hide_aa_bar_button_faded_opacity">Button opacity (faded)</string>
+    <string name="hide_aa_bar_button_fade_after">Button stays active for</string>
+    <string name="hide_aa_bar_button_fade_after_value">%1$d s</string>
+    <string name="hide_aa_bar_button_fade_never">Always active</string>
     <string name="hide_aa_bar_area">Hidden area</string>
     <string name="hide_aa_bar_area_value">L %1$d · R %2$d · B %3$d</string>
     <string name="hide_aa_bar_area_message">Screen pixels to push off each edge. Raise the side the bar is on until it just disappears. At most %1$d px left and right, %2$d px at the bottom.</string>

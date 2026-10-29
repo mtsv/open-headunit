@@ -83,6 +83,7 @@ object SettingsBackupManager {
         "canvas-extension-button-size-dp" to ValueType.INT,
         "canvas-extension-button-opacity-percent" to ValueType.INT,
         "canvas-extension-button-faded-opacity-percent" to ValueType.INT,
+        "canvas-extension-button-fade-after-seconds" to ValueType.INT,
         "ui-scale-home-percent" to ValueType.INT,
         "ui-scale-settings-percent" to ValueType.INT,
         "mic-sample-rate" to ValueType.INT,

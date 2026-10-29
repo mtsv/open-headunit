@@ -252,6 +252,11 @@ class Settings(private val context: Context) {
         get() = prefs.getInt("canvas-extension-button-faded-opacity-percent", 20)
         set(value) { prefs.edit().putInt("canvas-extension-button-faded-opacity-percent", value.coerceIn(0, 100)).apply() }
 
+    // How long the <-> button stays active after a touch before it fades; 0 never fades.
+    var canvasExtensionButtonFadeAfterSeconds: Int
+        get() = prefs.getInt("canvas-extension-button-fade-after-seconds", 5)
+        set(value) { prefs.edit().putInt("canvas-extension-button-fade-after-seconds", value.coerceIn(0, 60)).apply() }
+
     // UI Scale percentage for Home
     var uiScaleHomePercent: Int
         get() = prefs.getInt("ui-scale-home-percent", 100)

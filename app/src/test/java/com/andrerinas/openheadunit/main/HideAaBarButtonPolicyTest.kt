@@ -4,6 +4,7 @@ import com.andrerinas.openheadunit.main.HideAaBarButtonPolicy.TapOutcome
 import com.andrerinas.openheadunit.utils.CanvasExtensionPolicy.Ineligible
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -21,6 +22,24 @@ class HideAaBarButtonPolicyTest {
     fun `it fades after five seconds alone`() {
         assertFalse(HideAaBarButtonPolicy.isFaded(lastWakeMs = 1_000, nowMs = 5_999))
         assertTrue(HideAaBarButtonPolicy.isFaded(lastWakeMs = 1_000, nowMs = 6_000))
+    }
+
+    @Test
+    fun `the active time is the user's`() {
+        assertFalse(HideAaBarButtonPolicy.isFaded(lastWakeMs = 1_000, nowMs = 30_999, fadeAfterSeconds = 30))
+        assertTrue(HideAaBarButtonPolicy.isFaded(lastWakeMs = 1_000, nowMs = 31_000, fadeAfterSeconds = 30))
+        assertEquals(60_000L, HideAaBarButtonPolicy.fadeAfterMs(600))
+    }
+
+    // 0 keeps it active, so every tap on it toggles.
+    @Test
+    fun `zero seconds never fades`() {
+        assertNull(HideAaBarButtonPolicy.fadeAfterMs(0))
+        assertFalse(HideAaBarButtonPolicy.isFaded(lastWakeMs = 0, nowMs = Long.MAX_VALUE / 2, fadeAfterSeconds = 0))
+        assertEquals(
+            TapOutcome.TOGGLE,
+            HideAaBarButtonPolicy.onTap(HideAaBarButtonPolicy.isFaded(0, 1_000_000, fadeAfterSeconds = 0)),
+        )
     }
 
     // A half-visible button pressed by accident would cost a logo screen and the rail.
