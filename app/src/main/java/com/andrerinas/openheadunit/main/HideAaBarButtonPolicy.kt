@@ -21,8 +21,12 @@ object HideAaBarButtonPolicy {
      */
     const val DEFAULT_FADED_OPACITY_PERCENT = 20
 
-    /** Faded but never invisible, so the way back to the rail can always be found. */
-    const val MIN_FADED_OPACITY_PERCENT = 5
+    /**
+     * Faded may go all the way to invisible. It was held at 5% so the way back to the rail could
+     * always be found; on the head unit an invisible button was asked for instead. It stays where it
+     * was and still takes touches at 0 alpha, so a tap there wakes it to the active opacity.
+     */
+    const val MIN_FADED_OPACITY_PERCENT = 0
     const val MIN_ACTIVE_OPACITY_PERCENT = 10
 
     /** Default position (Q15): the top edge, centred. */

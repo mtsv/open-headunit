@@ -250,7 +250,7 @@ class Settings(private val context: Context) {
 
     var canvasExtensionButtonFadedOpacityPercent: Int
         get() = prefs.getInt("canvas-extension-button-faded-opacity-percent", 20)
-        set(value) { prefs.edit().putInt("canvas-extension-button-faded-opacity-percent", value.coerceIn(5, 100)).apply() }
+        set(value) { prefs.edit().putInt("canvas-extension-button-faded-opacity-percent", value.coerceIn(0, 100)).apply() }
 
     // UI Scale percentage for Home
     var uiScaleHomePercent: Int
