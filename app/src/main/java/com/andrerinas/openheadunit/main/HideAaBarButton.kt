@@ -1,6 +1,8 @@
 package com.andrerinas.openheadunit.main
 
 import android.annotation.SuppressLint
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.InsetDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -13,6 +15,7 @@ import android.view.ViewConfiguration
 import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.ImageView
+import androidx.appcompat.content.res.AppCompatResources
 import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.utils.Settings
 import kotlin.math.abs
@@ -39,8 +42,15 @@ class HideAaBarButton(
     private var lastWakeMs = SystemClock.elapsedRealtime()
     private var shown = false
 
+    // The icon's margin is in the drawable rather than the view's padding: a padding set after
+    // the ImageView had worked out its draw matrix left the icon drawn at the full button size
+    // and shifted by the padding, as seen on returning to a recreated projection. Half the icon's
+    // own width on each side keeps it at half the button, whatever the button's size.
+    private val openIcon = insetIcon(R.drawable.ic_hide_aa_bar)
+    private val filledIcon = insetIcon(R.drawable.ic_hide_aa_bar_filled)
+
     private val view = ImageView(context).apply {
-        setImageResource(R.drawable.ic_hide_aa_bar)
+        setImageDrawable(openIcon)
         scaleType = ImageView.ScaleType.FIT_CENTER
         setBackgroundResource(R.drawable.bg_hide_aa_bar_button)
         contentDescription = context.getString(R.string.hide_aa_bar_toggle)
@@ -65,7 +75,8 @@ class HideAaBarButton(
 
     /** [visible] is the policy's answer; [barHidden] picks the filled or the open icon. */
     fun update(visible: Boolean, barHidden: Boolean) {
-        view.setImageResource(if (barHidden) R.drawable.ic_hide_aa_bar_filled else R.drawable.ic_hide_aa_bar)
+        val icon = if (barHidden) filledIcon else openIcon
+        if (view.drawable !== icon) view.setImageDrawable(icon)
         if (visible == shown) {
             // The size and opacity settings may just have changed.
             if (shown) {
@@ -103,6 +114,11 @@ class HideAaBarButton(
         container.removeView(view)
     }
 
+    private fun insetIcon(resId: Int): Drawable {
+        val icon = requireNotNull(AppCompatResources.getDrawable(context, resId))
+        return InsetDrawable(icon, icon.intrinsicWidth / 2)
+    }
+
     private fun sizePx(): Int =
         (settings.canvasExtensionButtonSizeDp * density).roundToInt().coerceAtLeast((32 * density).roundToInt())
 
@@ -117,9 +133,6 @@ class HideAaBarButton(
             lp.height = size
             view.layoutParams = lp
         }
-        // A quarter of the size each side, so the 24dp icon scales with the button.
-        val pad = size / 4
-        view.setPadding(pad, pad, pad, pad)
         val (x, y) = HideAaBarButtonPolicy.position(
             settings.canvasExtensionButtonXPercent, settings.canvasExtensionButtonYPercent, size, w, h,
         )
