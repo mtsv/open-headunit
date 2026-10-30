@@ -218,3 +218,103 @@ constants are guarded against an unmeasured deadline, and which real-car report 
 Read it before changing a number.
 
 The code calls this feature **Encars**, after the `ru.encars.UPDATE_MANEUVER` broadcast it speaks.
+
+## Car GPS for the phone
+
+Open Headunit reads the head unit's own GPS and sends it to the phone over the sensor channel,
+under the **GPS for navigation** setting (on by default). That much is upstream. What this fork
+adds is a fix that keeps it running, an accurate declaration of what the position is, and — the
+part worth knowing before spending an evening on it — proof of what Android Auto does with it.
+
+### What it achieves, and what it does not
+
+**Android Auto does not navigate from the head unit's position.** It takes the fixes and goes on
+using the phone's own, which is the opposite of what the feature looks like it promises.
+
+Two independent pieces of evidence:
+
+- Turn the phone's location off during a session, with the head unit holding a good fix and
+  sending it at 1 Hz. The map loses position entirely. Nothing OHU sends reaches the map.
+- Across three logged drives, the phone called `getLastLocation` on its *own* GPS provider at a
+  steady ~6.6 Hz, and never once took a position from the head unit — see **The declaration**
+  below for the full table.
+
+So if the car's GPS is better than the phone's — a phone being spoofed, or just a tablet with a
+better antenna than a handset in a cupholder — this will not fix the map. Nothing in the
+projection protocol appears able to. The remaining route is a phone-side app publishing the head
+unit's fixes as a **mock location provider**, which is different software and not part of OHU.
+
+What the fork did fix is the part that was genuinely broken: the head unit now keeps sending a
+correct position for the whole drive rather than stopping a few seconds after the projection goes
+to the background.
+
+### Keeping GPS alive behind the projection
+
+Location stopped whenever the projection activity paused and resumed when it came back, with the
+gaps lining up with `onPause`/`onResume` to within the app-op grace period.
+
+The cause is that a "while using the app" location grant is exactly what it says: Android keeps
+feeding an app location while it is visible, and an app that is only a foreground *service* has to
+say so by declaring the `location` foreground-service type. OHU declared `connectedDevice`,
+`mediaPlayback` and `microphone`, but not `location`, so the moment the activity stopped being
+visible the fixes dried up.
+
+The service now claims the `location` type for as long as GPS is running and drops it again
+afterwards, rather than holding it for the whole session: `location` is a *while-in-use* type, and
+on Android 14+ a service holding one cannot be started from the background. Claiming it only when
+GPS is actually wanted keeps every other way the service starts working.
+
+Confirmed on the drive after the change: the oldest fix the phone was sent was 978 ms old, and no
+stale events at all.
+
+Note that it needs the location permission granted as **Allow all the time** on Android 10+ to be
+reliable; "While using the app" is what produced the original symptom.
+
+### The declaration
+
+`SensorSourceService` carries a `location_characterization` bitmask saying how a car derives its
+position — raw satellites, dead reckoning, fusion with gyroscope, wheel speed, steering angle.
+OHU never sent the field, so it arrived as 0: nothing declared, where a real car declares
+something. It now sends `RAW_GPS_ONLY` (256), which is the truth — a tablet reading
+`GPS_PROVIDER` has no CAN bus and fuses nothing.
+
+This was tested as a fix for the section above and **is not one.** It is kept only because
+declaring 0 was wrong on its own terms, at a cost of one varint:
+
+| Announced | Phone's own-GPS polls | Window | Rate | Positions taken from the head unit |
+|---|---|---|---|---|
+| nothing (field absent) | 97 | 15 s | 6.5/s | 0 |
+| 256, the honest value | 106 | 16 s | 6.6/s | 0 |
+| 255, every fusion flag | 171 | 26 s | 6.6/s | 0 |
+
+The third row is what closes it. 256 is the *weakest* value in the enum, so a phone ignoring it
+might only have been preferring a better-described source; 255 claims every fusion flag and dead
+reckoning, which no phone can rationally rank below its own fused provider. The phone parsed and
+echoed all three and sourced its position identically each time. **Do not reach for a stronger
+claim here** — the experiment has been run, it is dishonest, and it does not work.
+
+### Diagnostics
+
+With `GPS for navigation` on, one fix in every ten seconds is logged as it goes onto the wire,
+read back out of the built protobuf rather than from the `Location` object, so a wrong multiplier
+or a dropped field is visible rather than assumed. The sample carries the fix's age, and marks it
+suspect past 3 s.
+
+Zero and missing accuracies are also repaired before sending: a fix arriving with `accuracy=0`
+goes out as 1 m rather than as a literal zero, and one with no accuracy at all as 100 m. In one
+captured drive 883 of 1066 fixes had `accuracy=0`, which a consumer may read as "perfect" or as
+"unknown" and neither is true.
+
+### Code
+
+| Part | Where |
+|---|---|
+| Which FGS types may be claimed, and when | `app/ForegroundServiceTypePolicy.kt` |
+| Claiming and dropping the location type | `aap/AapService.kt` |
+| The permission and the service's type list | `AndroidManifest.xml` |
+| What is declared, and the drive table behind it | `aap/LocationCharacterizationPolicy.kt` |
+| Sending the declaration | `aap/protocol/messages/ServiceDiscoveryResponse.kt` |
+| The wire field | `proto/control.proto`, `Service.SensorSourceService` field 2 |
+| Sampling and skew verdicts | `location/LocationWireDiagnostics.kt` |
+| The accuracy floor | `location/LocationAccuracyPolicy.kt` |
+| Encoding a fix, and the wire sample | `aap/protocol/messages/LocationUpdateEvent.kt` |
