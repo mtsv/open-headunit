@@ -1056,6 +1056,79 @@ class AapService : Service() {
     }
 
     /**
+     * Whether the location foreground-service type is currently held.
+     *
+     * Read by every other claim so that re-claiming for the microphone composes the full set rather
+     * than replacing it - startForeground takes the mask wholesale, so a call that forgot this would
+     * drop the type and silence the head unit's GPS.
+     */
+    private var locationTypeHeld = false
+
+    /** The microphone's half of the same bookkeeping; see [locationTypeHeld]. */
+    private var microphoneTypeHeld = false
+
+    /**
+     * Claims the location foreground-service type, so the head unit's GPS survives the projection
+     * activity going away.
+     *
+     * Without it, a "while using the app" location grant is withdrawn as soon as no OHU activity is
+     * visible: ACCESS_FINE_LOCATION reads as denied, GpsLocation stops subscribing, and after
+     * RESEND_MAX_AGE_MS the phone falls back to its own position for the rest of the drive.
+     *
+     * Like the microphone, this type is while-in-use and so cannot be claimed from a background
+     * start - which is why it is claimed here, when a session is coming up, rather than in onCreate.
+     * A refusal is logged and otherwise ignored: the service keeps the mask it already had, and GPS
+     * still works while the projection is on screen, which is exactly the behaviour before this
+     * existed. Losing the session over it would be the worse trade.
+     */
+    private fun promoteForLocation() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        if (locationTypeHeld) return
+
+        val mask = ForegroundServiceTypePolicy.withLocation(
+            sdkInt = Build.VERSION.SDK_INT,
+            fineLocationGranted = PermissionChecker.checkSelfPermission(
+                this, Manifest.permission.ACCESS_FINE_LOCATION) == PermissionChecker.PERMISSION_GRANTED,
+            gpsForNavigationEnabled = settings.useGpsForNavigation,
+            microphoneHeld = microphoneTypeHeld)
+
+        if (mask and ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION == 0) {
+            AppLog.i("AapService: not claiming the location foreground-service type " +
+                "(permission or the GPS-for-navigation setting says no)")
+            return
+        }
+
+        try {
+            startForeground(1, createNotification(), mask)
+            locationTypeHeld = true
+            AppLog.i("AapService: claimed the location foreground-service type; the head unit's " +
+                "GPS now survives the projection leaving the screen")
+        } catch (e: Exception) {
+            AppLog.w("AapService: could not claim the location foreground-service type " +
+                "(${e.message}); GPS will stop while no OHU activity is visible")
+        }
+    }
+
+    /** Drops the location type when the session ends, so it is held only while it is true. */
+    private fun demoteAfterLocation() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        if (!locationTypeHeld) return
+
+        locationTypeHeld = false
+        try {
+            startForeground(1, createNotification(),
+                ForegroundServiceTypePolicy.whileInUseMask(
+                    sdkInt = Build.VERSION.SDK_INT,
+                    microphone = microphoneTypeHeld,
+                    location = false))
+        } catch (e: Exception) {
+            // Same reasoning as the microphone demote: the service stays foreground with the wider
+            // mask, which is the state it was already in a moment ago.
+            AppLog.w("AapService: could not drop the location foreground-service type: ${e.message}")
+        }
+    }
+
+    /**
      * Re-claims the foreground types with the microphone added, for as long as capture is open.
      *
      * The microphone type is while-in-use, so it cannot be claimed at service start: a background
@@ -1070,7 +1143,8 @@ class AapService : Service() {
             sdkInt = Build.VERSION.SDK_INT,
             recordAudioGranted = PermissionChecker.checkSelfPermission(
                 this, Manifest.permission.RECORD_AUDIO) == PermissionChecker.PERMISSION_GRANTED,
-            headUnitMicEnabled = settings.useHeadUnitMicrophone)
+            headUnitMicEnabled = settings.useHeadUnitMicrophone,
+            locationHeld = locationTypeHeld)
 
         // The mask can come back without the microphone type when the permission or the setting
         // says no. Capture has already checked both by this point, so say which happened rather
@@ -1083,6 +1157,7 @@ class AapService : Service() {
 
         return try {
             startForeground(1, createNotification(), mask)
+            microphoneTypeHeld = true
             AppLog.i("AapService: claimed the microphone foreground-service type for this capture")
             true
         } catch (e: Exception) {
@@ -1096,9 +1171,15 @@ class AapService : Service() {
     private fun demoteAfterMicrophone() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
 
+        microphoneTypeHeld = false
         try {
+            // Not baseTypeMask: that would drop a location type this service may be holding, and
+            // the head unit's GPS would go silent the next time the projection left the screen.
             startForeground(1, createNotification(),
-                ForegroundServiceTypePolicy.baseTypeMask(Build.VERSION.SDK_INT))
+                ForegroundServiceTypePolicy.whileInUseMask(
+                    sdkInt = Build.VERSION.SDK_INT,
+                    microphone = false,
+                    location = locationTypeHeld))
         } catch (e: Exception) {
             // Nothing to do about it and nothing depends on it: the service stays foreground with
             // the wider mask, which is the state it was already in a moment ago.
@@ -1455,6 +1536,10 @@ class AapService : Service() {
 
         // Start GpsLocationService and NightModeManager sensor tracking
         AppLog.i("AapService: Starting GpsLocationService and NightModeManager since connection is established")
+        // Before the service starts subscribing, so the type is already held when it checks the
+        // permission - otherwise a start that happens with no activity on screen reads it as denied
+        // and never subscribes at all.
+        promoteForLocation()
         startService(GpsLocationService.intent(this))
         nightModeManager?.start()
 
@@ -1707,6 +1792,7 @@ class AapService : Service() {
         // Stop GpsLocationService and NightModeManager sensor tracking
         AppLog.i("AapService: Stopping GpsLocationService and NightModeManager since connection is disconnected")
         stopService(GpsLocationService.intent(this))
+        demoteAfterLocation()
         nightModeManager?.stop()
 
         carKeysManager.onSessionEnded()
@@ -3028,6 +3114,10 @@ class AapService : Service() {
         commManager.destroy()
         nightModeManager?.stop()
         stopService(GpsLocationService.intent(this))
+        // Flags only, no re-claim: the service is going away, and startForeground on the way out
+        // would be promoting an instance that is about to stop existing.
+        locationTypeHeld = false
+        microphoneTypeHeld = false
         try {
             unregisterReceiver(nightModeUpdateReceiver)
             unregisterReceiver(sensorRefreshReceiver)
