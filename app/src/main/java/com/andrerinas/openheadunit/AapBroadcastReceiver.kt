@@ -15,6 +15,7 @@ import com.andrerinas.openheadunit.contract.MediaKeyIntent
 import com.andrerinas.openheadunit.contract.ProjectionActivityRequest
 import android.os.UserManager
 import android.os.Build
+import com.andrerinas.openheadunit.utils.AppLog
 
 class AapBroadcastReceiver : BroadcastReceiver() {
 
@@ -37,6 +38,8 @@ class AapBroadcastReceiver : BroadcastReceiver() {
         val component = App.provide(context)
         if (intent.action == LocationUpdateIntent.action) {
             val location = LocationUpdateIntent.extractLocation(intent)
+
+            AppLog.d("Location broadcast received: $location")
 
             // Feed the single source of truth for geofence / night-by-area evaluation.
             com.andrerinas.openheadunit.location.LocationHolder.update(location)

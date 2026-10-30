@@ -51,6 +51,7 @@ class GpsLocation constructor(private val context: Context): LocationListener {
             val fix = lastGpsFix
             if (fix != null && settings.useGpsForNavigation) {
                 val ageMs = SystemClock.elapsedRealtime() - lastGpsFixAtMs
+                AppLog.d("GpsLocation periodicResend(): ageMs=$ageMs; fix=$fix")
                 if (ageMs > RESEND_MAX_AGE_MS) {
                     if (!staleFixReported) {
                         staleFixReported = true
