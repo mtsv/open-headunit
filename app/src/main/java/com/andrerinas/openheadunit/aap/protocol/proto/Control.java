@@ -1166,6 +1166,41 @@ public final class Control {
        */
       com.andrerinas.openheadunit.aap.protocol.proto.Control.Service.SensorSourceService.SensorOrBuilder getSensorsOrBuilder(
           int index);
+
+      /**
+       * <pre>
+       * How this head unit's position is derived, as a bitmask of LocationCharacterization.
+       * Android Auto parses it and prints it back on the phone as "locationCharacterization=N"
+       * in the service it logs on connect, which is how a head unit can check that the value
+       * arrived at all.
+       *
+       * It does not change what the phone navigates from: three drives announcing 0, 256 and 255
+       * were sourced identically. Leaving it unset means 0, which declares nothing about the
+       * source, and sending the truth instead is the only reason this field is set. See
+       * LocationCharacterizationPolicy.
+       * </pre>
+       *
+       * <code>optional uint32 location_characterization = 2;</code>
+       * @return Whether the locationCharacterization field is set.
+       */
+      boolean hasLocationCharacterization();
+      /**
+       * <pre>
+       * How this head unit's position is derived, as a bitmask of LocationCharacterization.
+       * Android Auto parses it and prints it back on the phone as "locationCharacterization=N"
+       * in the service it logs on connect, which is how a head unit can check that the value
+       * arrived at all.
+       *
+       * It does not change what the phone navigates from: three drives announcing 0, 256 and 255
+       * were sourced identically. Leaving it unset means 0, which declares nothing about the
+       * source, and sending the truth instead is the only reason this field is set. See
+       * LocationCharacterizationPolicy.
+       * </pre>
+       *
+       * <code>optional uint32 location_characterization = 2;</code>
+       * @return The locationCharacterization.
+       */
+      int getLocationCharacterization();
     }
     /**
      * Protobuf type {@code com.andrerinas.openheadunit.aap.protocol.proto.Service.SensorSourceService}
@@ -1724,6 +1759,7 @@ public final class Control {
 
       }
 
+      private int bitField0_;
       public static final int SENSORS_FIELD_NUMBER = 1;
       @SuppressWarnings("serial")
       private java.util.List<com.andrerinas.openheadunit.aap.protocol.proto.Control.Service.SensorSourceService.Sensor> sensors_;
@@ -1765,6 +1801,49 @@ public final class Control {
         return sensors_.get(index);
       }
 
+      public static final int LOCATION_CHARACTERIZATION_FIELD_NUMBER = 2;
+      private int locationCharacterization_ = 0;
+      /**
+       * <pre>
+       * How this head unit's position is derived, as a bitmask of LocationCharacterization.
+       * Android Auto parses it and prints it back on the phone as "locationCharacterization=N"
+       * in the service it logs on connect, which is how a head unit can check that the value
+       * arrived at all.
+       *
+       * It does not change what the phone navigates from: three drives announcing 0, 256 and 255
+       * were sourced identically. Leaving it unset means 0, which declares nothing about the
+       * source, and sending the truth instead is the only reason this field is set. See
+       * LocationCharacterizationPolicy.
+       * </pre>
+       *
+       * <code>optional uint32 location_characterization = 2;</code>
+       * @return Whether the locationCharacterization field is set.
+       */
+      @java.lang.Override
+      public boolean hasLocationCharacterization() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * How this head unit's position is derived, as a bitmask of LocationCharacterization.
+       * Android Auto parses it and prints it back on the phone as "locationCharacterization=N"
+       * in the service it logs on connect, which is how a head unit can check that the value
+       * arrived at all.
+       *
+       * It does not change what the phone navigates from: three drives announcing 0, 256 and 255
+       * were sourced identically. Leaving it unset means 0, which declares nothing about the
+       * source, and sending the truth instead is the only reason this field is set. See
+       * LocationCharacterizationPolicy.
+       * </pre>
+       *
+       * <code>optional uint32 location_characterization = 2;</code>
+       * @return The locationCharacterization.
+       */
+      @java.lang.Override
+      public int getLocationCharacterization() {
+        return locationCharacterization_;
+      }
+
       private byte memoizedIsInitialized = -1;
       @java.lang.Override
       public final boolean isInitialized() {
@@ -1788,6 +1867,9 @@ public final class Control {
         for (int i = 0; i < sensors_.size(); i++) {
           output.writeMessage(1, sensors_.get(i));
         }
+        if (((bitField0_ & 0x00000001) != 0)) {
+          output.writeUInt32(2, locationCharacterization_);
+        }
         getUnknownFields().writeTo(output);
       }
 
@@ -1800,6 +1882,10 @@ public final class Control {
         for (int i = 0; i < sensors_.size(); i++) {
           size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(1, sensors_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) != 0)) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeUInt32Size(2, locationCharacterization_);
         }
         size += getUnknownFields().getSerializedSize();
         memoizedSize = size;
@@ -1818,6 +1904,11 @@ public final class Control {
 
         if (!getSensorsList()
             .equals(other.getSensorsList())) return false;
+        if (hasLocationCharacterization() != other.hasLocationCharacterization()) return false;
+        if (hasLocationCharacterization()) {
+          if (getLocationCharacterization()
+              != other.getLocationCharacterization()) return false;
+        }
         if (!getUnknownFields().equals(other.getUnknownFields())) return false;
         return true;
       }
@@ -1832,6 +1923,10 @@ public final class Control {
         if (getSensorsCount() > 0) {
           hash = (37 * hash) + SENSORS_FIELD_NUMBER;
           hash = (53 * hash) + getSensorsList().hashCode();
+        }
+        if (hasLocationCharacterization()) {
+          hash = (37 * hash) + LOCATION_CHARACTERIZATION_FIELD_NUMBER;
+          hash = (53 * hash) + getLocationCharacterization();
         }
         hash = (29 * hash) + getUnknownFields().hashCode();
         memoizedHashCode = hash;
@@ -1971,6 +2066,7 @@ public final class Control {
             sensorsBuilder_.clear();
           }
           bitField0_ = (bitField0_ & ~0x00000001);
+          locationCharacterization_ = 0;
           return this;
         }
 
@@ -2017,6 +2113,12 @@ public final class Control {
 
         private void buildPartial0(com.andrerinas.openheadunit.aap.protocol.proto.Control.Service.SensorSourceService result) {
           int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (((from_bitField0_ & 0x00000002) != 0)) {
+            result.locationCharacterization_ = locationCharacterization_;
+            to_bitField0_ |= 0x00000001;
+          }
+          result.bitField0_ |= to_bitField0_;
         }
 
         @java.lang.Override
@@ -2089,6 +2191,9 @@ public final class Control {
               }
             }
           }
+          if (other.hasLocationCharacterization()) {
+            setLocationCharacterization(other.getLocationCharacterization());
+          }
           this.mergeUnknownFields(other.getUnknownFields());
           onChanged();
           return this;
@@ -2133,6 +2238,11 @@ public final class Control {
                   }
                   break;
                 } // case 10
+                case 16: {
+                  locationCharacterization_ = input.readUInt32();
+                  bitField0_ |= 0x00000002;
+                  break;
+                } // case 16
                 default: {
                   if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                     done = true; // was an endgroup tag
@@ -2388,6 +2498,94 @@ public final class Control {
             sensors_ = null;
           }
           return sensorsBuilder_;
+        }
+
+        private int locationCharacterization_ ;
+        /**
+         * <pre>
+         * How this head unit's position is derived, as a bitmask of LocationCharacterization.
+         * Android Auto parses it and prints it back on the phone as "locationCharacterization=N"
+         * in the service it logs on connect, which is how a head unit can check that the value
+         * arrived at all.
+         *
+         * It does not change what the phone navigates from: three drives announcing 0, 256 and 255
+         * were sourced identically. Leaving it unset means 0, which declares nothing about the
+         * source, and sending the truth instead is the only reason this field is set. See
+         * LocationCharacterizationPolicy.
+         * </pre>
+         *
+         * <code>optional uint32 location_characterization = 2;</code>
+         * @return Whether the locationCharacterization field is set.
+         */
+        @java.lang.Override
+        public boolean hasLocationCharacterization() {
+          return ((bitField0_ & 0x00000002) != 0);
+        }
+        /**
+         * <pre>
+         * How this head unit's position is derived, as a bitmask of LocationCharacterization.
+         * Android Auto parses it and prints it back on the phone as "locationCharacterization=N"
+         * in the service it logs on connect, which is how a head unit can check that the value
+         * arrived at all.
+         *
+         * It does not change what the phone navigates from: three drives announcing 0, 256 and 255
+         * were sourced identically. Leaving it unset means 0, which declares nothing about the
+         * source, and sending the truth instead is the only reason this field is set. See
+         * LocationCharacterizationPolicy.
+         * </pre>
+         *
+         * <code>optional uint32 location_characterization = 2;</code>
+         * @return The locationCharacterization.
+         */
+        @java.lang.Override
+        public int getLocationCharacterization() {
+          return locationCharacterization_;
+        }
+        /**
+         * <pre>
+         * How this head unit's position is derived, as a bitmask of LocationCharacterization.
+         * Android Auto parses it and prints it back on the phone as "locationCharacterization=N"
+         * in the service it logs on connect, which is how a head unit can check that the value
+         * arrived at all.
+         *
+         * It does not change what the phone navigates from: three drives announcing 0, 256 and 255
+         * were sourced identically. Leaving it unset means 0, which declares nothing about the
+         * source, and sending the truth instead is the only reason this field is set. See
+         * LocationCharacterizationPolicy.
+         * </pre>
+         *
+         * <code>optional uint32 location_characterization = 2;</code>
+         * @param value The locationCharacterization to set.
+         * @return This builder for chaining.
+         */
+        public Builder setLocationCharacterization(int value) {
+
+          locationCharacterization_ = value;
+          bitField0_ |= 0x00000002;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * How this head unit's position is derived, as a bitmask of LocationCharacterization.
+         * Android Auto parses it and prints it back on the phone as "locationCharacterization=N"
+         * in the service it logs on connect, which is how a head unit can check that the value
+         * arrived at all.
+         *
+         * It does not change what the phone navigates from: three drives announcing 0, 256 and 255
+         * were sourced identically. Leaving it unset means 0, which declares nothing about the
+         * source, and sending the truth instead is the only reason this field is set. See
+         * LocationCharacterizationPolicy.
+         * </pre>
+         *
+         * <code>optional uint32 location_characterization = 2;</code>
+         * @return This builder for chaining.
+         */
+        public Builder clearLocationCharacterization() {
+          bitField0_ = (bitField0_ & ~0x00000002);
+          locationCharacterization_ = 0;
+          onChanged();
+          return this;
         }
         @java.lang.Override
         public final Builder setUnknownFields(
@@ -23569,14 +23767,14 @@ public final class Control {
     /**
      * <code>optional uint32 socket_receive_buffer_size_kb = 1 [deprecated = true];</code>
      * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_receive_buffer_size_kb is deprecated.
-     *     See control.proto;l=273
+     *     See control.proto;l=284
      * @return Whether the socketReceiveBufferSizeKb field is set.
      */
     @java.lang.Deprecated boolean hasSocketReceiveBufferSizeKb();
     /**
      * <code>optional uint32 socket_receive_buffer_size_kb = 1 [deprecated = true];</code>
      * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_receive_buffer_size_kb is deprecated.
-     *     See control.proto;l=273
+     *     See control.proto;l=284
      * @return The socketReceiveBufferSizeKb.
      */
     @java.lang.Deprecated int getSocketReceiveBufferSizeKb();
@@ -23584,14 +23782,14 @@ public final class Control {
     /**
      * <code>optional uint32 socket_send_buffer_size_kb = 2 [deprecated = true];</code>
      * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_send_buffer_size_kb is deprecated.
-     *     See control.proto;l=274
+     *     See control.proto;l=285
      * @return Whether the socketSendBufferSizeKb field is set.
      */
     @java.lang.Deprecated boolean hasSocketSendBufferSizeKb();
     /**
      * <code>optional uint32 socket_send_buffer_size_kb = 2 [deprecated = true];</code>
      * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_send_buffer_size_kb is deprecated.
-     *     See control.proto;l=274
+     *     See control.proto;l=285
      * @return The socketSendBufferSizeKb.
      */
     @java.lang.Deprecated int getSocketSendBufferSizeKb();
@@ -23694,7 +23892,7 @@ public final class Control {
     /**
      * <code>optional uint32 socket_receive_buffer_size_kb = 1 [deprecated = true];</code>
      * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_receive_buffer_size_kb is deprecated.
-     *     See control.proto;l=273
+     *     See control.proto;l=284
      * @return Whether the socketReceiveBufferSizeKb field is set.
      */
     @java.lang.Override
@@ -23704,7 +23902,7 @@ public final class Control {
     /**
      * <code>optional uint32 socket_receive_buffer_size_kb = 1 [deprecated = true];</code>
      * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_receive_buffer_size_kb is deprecated.
-     *     See control.proto;l=273
+     *     See control.proto;l=284
      * @return The socketReceiveBufferSizeKb.
      */
     @java.lang.Override
@@ -23717,7 +23915,7 @@ public final class Control {
     /**
      * <code>optional uint32 socket_send_buffer_size_kb = 2 [deprecated = true];</code>
      * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_send_buffer_size_kb is deprecated.
-     *     See control.proto;l=274
+     *     See control.proto;l=285
      * @return Whether the socketSendBufferSizeKb field is set.
      */
     @java.lang.Override
@@ -23727,7 +23925,7 @@ public final class Control {
     /**
      * <code>optional uint32 socket_send_buffer_size_kb = 2 [deprecated = true];</code>
      * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_send_buffer_size_kb is deprecated.
-     *     See control.proto;l=274
+     *     See control.proto;l=285
      * @return The socketSendBufferSizeKb.
      */
     @java.lang.Override
@@ -24269,7 +24467,7 @@ public final class Control {
       /**
        * <code>optional uint32 socket_receive_buffer_size_kb = 1 [deprecated = true];</code>
        * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_receive_buffer_size_kb is deprecated.
-       *     See control.proto;l=273
+       *     See control.proto;l=284
        * @return Whether the socketReceiveBufferSizeKb field is set.
        */
       @java.lang.Override
@@ -24279,7 +24477,7 @@ public final class Control {
       /**
        * <code>optional uint32 socket_receive_buffer_size_kb = 1 [deprecated = true];</code>
        * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_receive_buffer_size_kb is deprecated.
-       *     See control.proto;l=273
+       *     See control.proto;l=284
        * @return The socketReceiveBufferSizeKb.
        */
       @java.lang.Override
@@ -24289,7 +24487,7 @@ public final class Control {
       /**
        * <code>optional uint32 socket_receive_buffer_size_kb = 1 [deprecated = true];</code>
        * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_receive_buffer_size_kb is deprecated.
-       *     See control.proto;l=273
+       *     See control.proto;l=284
        * @param value The socketReceiveBufferSizeKb to set.
        * @return This builder for chaining.
        */
@@ -24303,7 +24501,7 @@ public final class Control {
       /**
        * <code>optional uint32 socket_receive_buffer_size_kb = 1 [deprecated = true];</code>
        * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_receive_buffer_size_kb is deprecated.
-       *     See control.proto;l=273
+       *     See control.proto;l=284
        * @return This builder for chaining.
        */
       @java.lang.Deprecated public Builder clearSocketReceiveBufferSizeKb() {
@@ -24317,7 +24515,7 @@ public final class Control {
       /**
        * <code>optional uint32 socket_send_buffer_size_kb = 2 [deprecated = true];</code>
        * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_send_buffer_size_kb is deprecated.
-       *     See control.proto;l=274
+       *     See control.proto;l=285
        * @return Whether the socketSendBufferSizeKb field is set.
        */
       @java.lang.Override
@@ -24327,7 +24525,7 @@ public final class Control {
       /**
        * <code>optional uint32 socket_send_buffer_size_kb = 2 [deprecated = true];</code>
        * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_send_buffer_size_kb is deprecated.
-       *     See control.proto;l=274
+       *     See control.proto;l=285
        * @return The socketSendBufferSizeKb.
        */
       @java.lang.Override
@@ -24337,7 +24535,7 @@ public final class Control {
       /**
        * <code>optional uint32 socket_send_buffer_size_kb = 2 [deprecated = true];</code>
        * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_send_buffer_size_kb is deprecated.
-       *     See control.proto;l=274
+       *     See control.proto;l=285
        * @param value The socketSendBufferSizeKb to set.
        * @return This builder for chaining.
        */
@@ -24351,7 +24549,7 @@ public final class Control {
       /**
        * <code>optional uint32 socket_send_buffer_size_kb = 2 [deprecated = true];</code>
        * @deprecated com.andrerinas.openheadunit.aap.protocol.proto.WirelessTcpConfiguration.socket_send_buffer_size_kb is deprecated.
-       *     See control.proto;l=274
+       *     See control.proto;l=285
        * @return This builder for chaining.
        */
       @java.lang.Deprecated public Builder clearSocketSendBufferSizeKb() {
@@ -37408,7 +37606,7 @@ public final class Control {
     java.lang.String[] descriptorData = {
       "\n\rcontrol.proto\022.com.andrerinas.openhead" +
       "unit.aap.protocol.proto\032\014common.proto\032\013m" +
-      "edia.proto\032\rsensors.proto\"\370\"\n\007Service\022h\n" +
+      "edia.proto\032\rsensors.proto\"\233#\n\007Service\022h\n" +
       "\024phone_status_service\030\n \001(\0132J.com.andrer" +
       "inas.openheadunit.aap.protocol.proto.Ser" +
       "vice.PhoneStatusService\022\n\n\002id\030\001 \002(\r\022j\n\025s" +
@@ -37439,227 +37637,228 @@ public final class Control {
       "GenericNotificationService\022n\n\027wifi_proje" +
       "ction_service\030\016 \001(\0132M.com.andrerinas.ope" +
       "nheadunit.aap.protocol.proto.Service.Wif" +
-      "iProjectionService\032\316\001\n\023SensorSourceServi" +
+      "iProjectionService\032\361\001\n\023SensorSourceServi" +
       "ce\022c\n\007sensors\030\001 \003(\0132R.com.andrerinas.ope" +
       "nheadunit.aap.protocol.proto.Service.Sen" +
-      "sorSourceService.Sensor\032R\n\006Sensor\022H\n\004typ" +
-      "e\030\001 \002(\0162:.com.andrerinas.openheadunit.aa" +
-      "p.protocol.proto.SensorType\032\266\t\n\020MediaSin" +
-      "kService\022V\n\016available_type\030\001 \002(\0162>.com.a" +
-      "ndrerinas.openheadunit.aap.protocol.prot" +
-      "o.MediaCodecType\022S\n\naudio_type\030\002 \001(\0162?.c" +
-      "om.andrerinas.openheadunit.aap.protocol." +
-      "proto.AudioStreamType\022Y\n\raudio_configs\030\003" +
-      " \003(\0132B.com.andrerinas.openheadunit.aap.p" +
-      "rotocol.proto.AudioConfiguration\022r\n\rvide" +
-      "o_configs\030\004 \003(\0132[.com.andrerinas.openhea" +
-      "dunit.aap.protocol.proto.Service.MediaSi" +
-      "nkService.VideoConfiguration\022\037\n\027availabl" +
-      "e_while_in_call\030\005 \001(\010\032\204\006\n\022VideoConfigura" +
-      "tion\022\216\001\n\020codec_resolution\030\001 \002(\0162t.com.an" +
+      "sorSourceService.Sensor\022!\n\031location_char" +
+      "acterization\030\002 \001(\r\032R\n\006Sensor\022H\n\004type\030\001 \002" +
+      "(\0162:.com.andrerinas.openheadunit.aap.pro" +
+      "tocol.proto.SensorType\032\266\t\n\020MediaSinkServ" +
+      "ice\022V\n\016available_type\030\001 \002(\0162>.com.andrer" +
+      "inas.openheadunit.aap.protocol.proto.Med" +
+      "iaCodecType\022S\n\naudio_type\030\002 \001(\0162?.com.an" +
       "drerinas.openheadunit.aap.protocol.proto" +
-      ".Service.MediaSinkService.VideoConfigura" +
-      "tion.VideoCodecResolutionType\022\202\001\n\nframe_" +
-      "rate\030\002 \002(\0162n.com.andrerinas.openheadunit" +
+      ".AudioStreamType\022Y\n\raudio_configs\030\003 \003(\0132" +
+      "B.com.andrerinas.openheadunit.aap.protoc" +
+      "ol.proto.AudioConfiguration\022r\n\rvideo_con" +
+      "figs\030\004 \003(\0132[.com.andrerinas.openheadunit" +
       ".aap.protocol.proto.Service.MediaSinkSer" +
-      "vice.VideoConfiguration.VideoFrameRateTy" +
-      "pe\022\024\n\014margin_width\030\003 \002(\r\022\025\n\rmargin_heigh" +
-      "t\030\004 \002(\r\022\017\n\007density\030\005 \002(\r\022 \n\030decoder_addi" +
-      "tional_depth\030\006 \001(\r\022\030\n\020viewing_distance\030\007" +
-      " \001(\r\022\035\n\025pixel_aspect_ratio_e4\030\010 \001(\r\022\024\n\014r" +
-      "eal_density\030\t \001(\r\022X\n\020video_codec_type\030\n " +
-      "\001(\0162>.com.andrerinas.openheadunit.aap.pr" +
-      "otocol.proto.MediaCodecType\"\246\001\n\030VideoCod" +
-      "ecResolutionType\022\014\n\010_800x480\020\001\022\r\n\t_1280x" +
-      "720\020\002\022\016\n\n_1920x1080\020\003\022\016\n\n_2560x1440\020\004\022\016\n" +
-      "\n_3840x2160\020\005\022\r\n\t_720x1280\020\006\022\016\n\n_1080x19" +
-      "20\020\007\022\016\n\n_1440x2560\020\010\022\016\n\n_2160x3840\020\t\"&\n\022" +
-      "VideoFrameRateType\022\007\n\003_60\020\001\022\007\n\003_30\020\002\032\265\002\n" +
-      "\022InputSourceService\022\032\n\022keycodes_supporte" +
-      "d\030\001 \003(\r\022k\n\013touchscreen\030\002 \001(\0132V.com.andre" +
-      "rinas.openheadunit.aap.protocol.proto.Se" +
-      "rvice.InputSourceService.TouchConfig\022h\n\010" +
-      "touchpad\030\003 \001(\0132V.com.andrerinas.openhead" +
-      "unit.aap.protocol.proto.Service.InputSou" +
-      "rceService.TouchConfig\032,\n\013TouchConfig\022\r\n" +
-      "\005width\030\001 \002(\r\022\016\n\006height\030\002 \002(\r\032\335\001\n\022MediaSo" +
-      "urceService\022L\n\004type\030\001 \002(\0162>.com.andrerin" +
-      "as.openheadunit.aap.protocol.proto.Media" +
-      "CodecType\022X\n\014audio_config\030\002 \002(\0132B.com.an" +
-      "drerinas.openheadunit.aap.protocol.proto" +
-      ".AudioConfiguration\022\037\n\027available_while_i" +
-      "n_call\030\003 \001(\010\032\222\001\n\020BluetoothService\022\023\n\013car" +
-      "_address\030\001 \002(\t\022i\n\031supported_pairing_meth" +
-      "ods\030\002 \003(\0162F.com.andrerinas.openheadunit." +
-      "aap.protocol.proto.BluetoothPairingMetho" +
-      "d\032\234\003\n\027NavigationStatusService\022\033\n\023minimum" +
-      "_interval_ms\030\001 \002(\r\022i\n\004type\030\002 \002(\0162[.com.a" +
-      "ndrerinas.openheadunit.aap.protocol.prot" +
-      "o.Service.NavigationStatusService.Cluste" +
-      "rType\022s\n\rimage_options\030\003 \001(\0132\\.com.andre" +
-      "rinas.openheadunit.aap.protocol.proto.Se" +
-      "rvice.NavigationStatusService.ImageOptio" +
-      "ns\032G\n\014ImageOptions\022\r\n\005width\030\001 \002(\005\022\016\n\006hei" +
-      "ght\030\002 \002(\005\022\030\n\020colour_deth_bits\030\003 \002(\005\";\n\013C" +
-      "lusterType\022\030\n\024CustomImageSupported\020\001\022\022\n\016" +
-      "ImageCodesOnly\020\002\032\034\n\032MediaPlaybackStatusS" +
-      "ervice\032\344\001\n\020PhoneStatus_Call\022X\n\005state\030\001 \001" +
-      "(\0162I.com.andrerinas.openheadunit.aap.pro" +
-      "tocol.proto.Service.PhoneStatus_State\022\035\n" +
-      "\025call_duration_seconds\030\002 \001(\r\022\025\n\rcaller_n" +
-      "umber\030\003 \001(\t\022\021\n\tcaller_id\030\004 \001(\t\022\032\n\022caller" +
-      "_number_type\030\005 \001(\t\022\021\n\tthumbnail\030\006 \001(\014\032=\n" +
-      "\021PhoneStatus_Input\022\025\n\rcaller_number\030\001 \001(" +
-      "\t\022\021\n\tcaller_id\030\002 \001(\t\032\206\001\n\022PhoneStatusServ" +
-      "ice\022W\n\005calls\030\001 \003(\0132H.com.andrerinas.open" +
-      "headunit.aap.protocol.proto.Service.Phon" +
-      "eStatus_Call\022\027\n\017signal_strength\030\002 \001(\r\032P\n" +
-      "\026VendorExtensionService\022\014\n\004name\030\001 \001(\t\022\032\n" +
-      "\022package_white_list\030\002 \003(\t\022\014\n\004data\030\003 \001(\014\032" +
-      "\034\n\032GenericNotificationService\032/\n\025WifiPro" +
-      "jectionService\022\026\n\016car_wifi_bssid\030\001 \001(\t\"d" +
-      "\n\021PhoneStatus_State\022\n\n\006InCall\020\001\022\n\n\006OnHol" +
-      "d\020\002\022\r\n\tHangingUp\020\003\022\014\n\010Incoming\020\004\022\t\n\005Mute" +
-      "d\020\005\022\017\n\013Conferenced\020\006\"B\n\027ServiceDiscovery" +
-      "Request\022\022\n\nphone_name\030\004 \002(\t\022\023\n\013phone_bra" +
-      "nd\030\005 \002(\t\"\313\005\n\030ServiceDiscoveryResponse\022I\n" +
-      "\010services\030\001 \003(\01327.com.andrerinas.openhea" +
-      "dunit.aap.protocol.proto.Service\022\014\n\004make" +
-      "\030\002 \002(\t\022\r\n\005model\030\003 \002(\t\022\014\n\004year\030\004 \002(\t\022\022\n\nv" +
-      "ehicle_id\030\005 \002(\t\022W\n\017driver_position\030\006 \002(\016" +
-      "2>.com.andrerinas.openheadunit.aap.proto" +
-      "col.proto.DriverPosition\022\026\n\016head_unit_ma" +
-      "ke\030\007 \002(\t\022\027\n\017head_unit_model\030\010 \002(\t\022 \n\030hea" +
-      "d_unit_software_build\030\t \002(\t\022\"\n\032head_unit" +
-      "_software_version\030\n \002(\t\022\'\n\037can_play_nati" +
-      "ve_media_during_vr\030\013 \002(\010\022\034\n\024hide_project" +
-      "ed_clock\030\014 \001(\010\022\035\n\025session_configuration\030" +
-      "\r \001(\005\022\024\n\014display_name\030\016 \001(\t\022\031\n\021probe_for" +
-      "_support\030\017 \001(\010\022i\n\030connection_configurati" +
-      "on\030\020 \001(\0132G.com.andrerinas.openheadunit.a" +
-      "ap.protocol.proto.ConnectionConfiguratio" +
-      "n\022S\n\rheadunit_info\030\021 \001(\0132<.com.andrerina" +
-      "s.openheadunit.aap.protocol.proto.HeadUn" +
-      "itInfo\"{\n\021PingConfiguration\022\022\n\ntimeout_m" +
-      "s\030\001 \001(\r\022\023\n\013interval_ms\030\002 \001(\r\022!\n\031high_lat" +
-      "ency_threshold_ms\030\003 \001(\r\022\032\n\022tracked_ping_" +
-      "count\030\004 \001(\r\"\322\001\n\030WirelessTcpConfiguration" +
-      "\022)\n\035socket_receive_buffer_size_kb\030\001 \001(\rB" +
-      "\002\030\001\022&\n\032socket_send_buffer_size_kb\030\002 \001(\rB" +
-      "\002\030\001\022\036\n\026socket_read_timeout_ms\030\003 \001(\r\022\"\n\032s" +
-      "ocket_receive_buffer_size\030\004 \001(\r\022\037\n\027socke" +
-      "t_send_buffer_size\030\005 \001(\r\"\346\001\n\027ConnectionC" +
-      "onfiguration\022]\n\022ping_configuration\030\001 \001(\013" +
-      "2A.com.andrerinas.openheadunit.aap.proto" +
-      "col.proto.PingConfiguration\022l\n\032wireless_" +
-      "tcp_configuration\030\002 \001(\0132H.com.andrerinas" +
-      ".openheadunit.aap.protocol.proto.Wireles" +
-      "sTcpConfiguration\"1\n\025VersionRequestOptio" +
-      "ns\022\030\n\020snapshot_version\030\001 \001(\003\"\203\001\n\026Version" +
-      "ResponseOptions\022i\n\030connection_configurat" +
-      "ion\030\001 \001(\0132G.com.andrerinas.openheadunit." +
-      "aap.protocol.proto.ConnectionConfigurati" +
-      "on\"b\n\026ServiceDiscoveryUpdate\022H\n\007service\030" +
-      "\001 \001(\01327.com.andrerinas.openheadunit.aap." +
-      "protocol.proto.Service\":\n\022ChannelOpenReq" +
-      "uest\022\020\n\010priority\030\001 \002(\021\022\022\n\nservice_id\030\002 \002" +
-      "(\005\"d\n\023ChannelOpenResponse\022M\n\006status\030\001 \002(" +
-      "\0162=.com.andrerinas.openheadunit.aap.prot" +
-      "ocol.proto.MessageStatus\"4\n\013PingRequest\022" +
-      "\021\n\ttimestamp\030\001 \002(\003\022\022\n\nbug_report\030\002 \001(\005\"!" +
-      "\n\014PingResponse\022\021\n\ttimestamp\030\001 \002(\003\"]\n\rBye" +
-      "ByeRequest\022L\n\006reason\030\001 \002(\0162<.com.andreri" +
-      "nas.openheadunit.aap.protocol.proto.ByeB" +
-      "yeReason\"\020\n\016ByeByeResponse\"\314\001\n\030VoiceSess" +
-      "ionNotification\022k\n\006status\030\001 \002(\0162[.com.an" +
-      "drerinas.openheadunit.aap.protocol.proto" +
-      ".VoiceSessionNotification.VoiceSessionSt" +
-      "atus\"C\n\022VoiceSessionStatus\022\026\n\022VOICE_STAT" +
-      "US_START\020\001\022\025\n\021VOICE_STATUS_STOP\020\002\"\200\002\n\035Au" +
-      "dioFocusRequestNotification\022t\n\007request\030\001" +
-      " \001(\0162c.com.andrerinas.openheadunit.aap.p" +
-      "rotocol.proto.AudioFocusRequestNotificat" +
-      "ion.AudioFocusRequestType\"i\n\025AudioFocusR" +
-      "equestType\022\010\n\004NONE\020\000\022\010\n\004GAIN\020\001\022\022\n\016GAIN_T" +
-      "RANSIENT\020\002\022\033\n\027GAIN_TRANSIENT_MAY_DUCK\020\003\022" +
-      "\013\n\007RELEASE\020\004\"\360\002\n\026AudioFocusNotification\022" +
-      "o\n\013focus_state\030\001 \002(\0162Z.com.andrerinas.op" +
-      "enheadunit.aap.protocol.proto.AudioFocus" +
-      "Notification.AudioFocusStateType\022\023\n\013unso" +
-      "licited\030\002 \001(\010\"\317\001\n\023AudioFocusStateType\022\016\n" +
-      "\nSTATE_GAIN\020\001\022\030\n\024STATE_GAIN_TRANSIENT\020\002\022" +
-      "\016\n\nSTATE_LOSS\020\003\022!\n\035STATE_LOSS_TRANSIENT_" +
-      "CAN_DUCK\020\004\022\030\n\024STATE_LOSS_TRANSIENT\020\005\022\031\n\025" +
-      "STATE_GAIN_MEDIA_ONLY\020\006\022&\n\"STATE_GAIN_TR" +
-      "ANSIENT_GUIDANCE_ONLY\020\007\"o\n\033NavFocusReque" +
-      "stNotification\022P\n\nfocus_type\030\001 \001(\0162<.com" +
-      ".andrerinas.openheadunit.aap.protocol.pr" +
-      "oto.NavFocusType\"h\n\024NavFocusNotification" +
-      "\022P\n\nfocus_type\030\001 \002(\0162<.com.andrerinas.op" +
-      "enheadunit.aap.protocol.proto.NavFocusTy" +
-      "pe\"f\n\031BatteryStatusNotification\022\025\n\rbatte" +
-      "ry_level\030\001 \002(\r\022\030\n\020time_remaining_s\030\002 \001(\r" +
-      "\022\030\n\020critical_battery\030\003 \001(\010\"9\n\017ConnectedD" +
-      "evice\022\023\n\013device_name\030\001 \001(\t\022\021\n\tdevice_id\030" +
-      "\002 \001(\005\"\240\001\n\023CarConnectedDevices\022Z\n\021connect" +
-      "ed_devices\030\001 \003(\0132?.com.andrerinas.openhe" +
-      "adunit.aap.protocol.proto.ConnectedDevic" +
-      "e\022\023\n\013unsolicited\030\002 \001(\010\022\030\n\nfinal_list\030\003 \001" +
-      "(\010:\004true\"\367\004\n\022UserSwitchResponse\022c\n\006statu" +
-      "s\030\001 \001(\0162S.com.andrerinas.openheadunit.aa" +
-      "p.protocol.proto.UserSwitchResponse.User" +
-      "SwitchStatus\022X\n\017selected_device\030\002 \001(\0132?." +
+      "vice.VideoConfiguration\022\037\n\027available_whi" +
+      "le_in_call\030\005 \001(\010\032\204\006\n\022VideoConfiguration\022" +
+      "\216\001\n\020codec_resolution\030\001 \002(\0162t.com.andreri" +
+      "nas.openheadunit.aap.protocol.proto.Serv" +
+      "ice.MediaSinkService.VideoConfiguration." +
+      "VideoCodecResolutionType\022\202\001\n\nframe_rate\030" +
+      "\002 \002(\0162n.com.andrerinas.openheadunit.aap." +
+      "protocol.proto.Service.MediaSinkService." +
+      "VideoConfiguration.VideoFrameRateType\022\024\n" +
+      "\014margin_width\030\003 \002(\r\022\025\n\rmargin_height\030\004 \002" +
+      "(\r\022\017\n\007density\030\005 \002(\r\022 \n\030decoder_additiona" +
+      "l_depth\030\006 \001(\r\022\030\n\020viewing_distance\030\007 \001(\r\022" +
+      "\035\n\025pixel_aspect_ratio_e4\030\010 \001(\r\022\024\n\014real_d" +
+      "ensity\030\t \001(\r\022X\n\020video_codec_type\030\n \001(\0162>" +
+      ".com.andrerinas.openheadunit.aap.protoco" +
+      "l.proto.MediaCodecType\"\246\001\n\030VideoCodecRes" +
+      "olutionType\022\014\n\010_800x480\020\001\022\r\n\t_1280x720\020\002" +
+      "\022\016\n\n_1920x1080\020\003\022\016\n\n_2560x1440\020\004\022\016\n\n_384" +
+      "0x2160\020\005\022\r\n\t_720x1280\020\006\022\016\n\n_1080x1920\020\007\022" +
+      "\016\n\n_1440x2560\020\010\022\016\n\n_2160x3840\020\t\"&\n\022Video" +
+      "FrameRateType\022\007\n\003_60\020\001\022\007\n\003_30\020\002\032\265\002\n\022Inpu" +
+      "tSourceService\022\032\n\022keycodes_supported\030\001 \003" +
+      "(\r\022k\n\013touchscreen\030\002 \001(\0132V.com.andrerinas" +
+      ".openheadunit.aap.protocol.proto.Service" +
+      ".InputSourceService.TouchConfig\022h\n\010touch" +
+      "pad\030\003 \001(\0132V.com.andrerinas.openheadunit." +
+      "aap.protocol.proto.Service.InputSourceSe" +
+      "rvice.TouchConfig\032,\n\013TouchConfig\022\r\n\005widt" +
+      "h\030\001 \002(\r\022\016\n\006height\030\002 \002(\r\032\335\001\n\022MediaSourceS" +
+      "ervice\022L\n\004type\030\001 \002(\0162>.com.andrerinas.op" +
+      "enheadunit.aap.protocol.proto.MediaCodec" +
+      "Type\022X\n\014audio_config\030\002 \002(\0132B.com.andreri" +
+      "nas.openheadunit.aap.protocol.proto.Audi" +
+      "oConfiguration\022\037\n\027available_while_in_cal" +
+      "l\030\003 \001(\010\032\222\001\n\020BluetoothService\022\023\n\013car_addr" +
+      "ess\030\001 \002(\t\022i\n\031supported_pairing_methods\030\002" +
+      " \003(\0162F.com.andrerinas.openheadunit.aap.p" +
+      "rotocol.proto.BluetoothPairingMethod\032\234\003\n" +
+      "\027NavigationStatusService\022\033\n\023minimum_inte" +
+      "rval_ms\030\001 \002(\r\022i\n\004type\030\002 \002(\0162[.com.andrer" +
+      "inas.openheadunit.aap.protocol.proto.Ser" +
+      "vice.NavigationStatusService.ClusterType" +
+      "\022s\n\rimage_options\030\003 \001(\0132\\.com.andrerinas" +
+      ".openheadunit.aap.protocol.proto.Service" +
+      ".NavigationStatusService.ImageOptions\032G\n" +
+      "\014ImageOptions\022\r\n\005width\030\001 \002(\005\022\016\n\006height\030\002" +
+      " \002(\005\022\030\n\020colour_deth_bits\030\003 \002(\005\";\n\013Cluste" +
+      "rType\022\030\n\024CustomImageSupported\020\001\022\022\n\016Image" +
+      "CodesOnly\020\002\032\034\n\032MediaPlaybackStatusServic" +
+      "e\032\344\001\n\020PhoneStatus_Call\022X\n\005state\030\001 \001(\0162I." +
       "com.andrerinas.openheadunit.aap.protocol" +
-      ".proto.ConnectedDevice\"\241\003\n\020UserSwitchSta" +
-      "tus\022\"\n\025ERROR_REQUEST_TIMEOUT\020\367\377\377\377\377\377\377\377\377\001\022" +
-      "\"\n\025ERROR_INVALID_REQUEST\020\370\377\377\377\377\377\377\377\377\001\022\036\n\021E" +
-      "RROR_HU_INTERNAL\020\371\377\377\377\377\377\377\377\377\001\022/\n\"ERROR_MUL" +
-      "TIPLE_USER_SWITCH_REQUEST\020\372\377\377\377\377\377\377\377\377\001\022/\n\"" +
-      "ERROR_PHONE_UNABLE_TO_CONNECT_WIFI\020\373\377\377\377\377" +
-      "\377\377\377\377\001\0226\n)ERROR_INCOMPATIBLE_PHONE_PROTOC" +
-      "OL_VERSION\020\374\377\377\377\377\377\377\377\377\001\022(\n\033ERROR_BT_CLOSED" +
-      "_AFTER_START\020\375\377\377\377\377\377\377\377\377\001\022)\n\034ERROR_BT_CLOS" +
-      "ED_BEFORE_START\020\376\377\377\377\377\377\377\377\377\001\022\'\n\032ERROR_NO_R" +
-      "FCOMM_CONNECTION\020\377\377\377\377\377\377\377\377\377\001\022\r\n\tSTATUS_OK" +
-      "\020\000\"0\n\026CallAvailabilityStatus\022\026\n\016call_ava" +
-      "ilable\030\001 \001(\010*\255\007\n\016ControlMsgType\022\033\n\027MESSA" +
-      "GE_VERSION_REQUEST\020\001\022\034\n\030MESSAGE_VERSION_" +
-      "RESPONSE\020\002\022\034\n\030MESSAGE_ENCAPSULATED_SSL\020\003" +
-      "\022\031\n\025MESSAGE_AUTH_COMPLETE\020\004\022%\n!MESSAGE_S" +
-      "ERVICE_DISCOVERY_REQUEST\020\005\022&\n\"MESSAGE_SE" +
-      "RVICE_DISCOVERY_RESPONSE\020\006\022 \n\034MESSAGE_CH" +
-      "ANNEL_OPEN_REQUEST\020\007\022!\n\035MESSAGE_CHANNEL_" +
-      "OPEN_RESPONSE\020\010\022&\n\"MESSAGE_CHANNEL_CLOSE" +
-      "_NOTIFICATION\020\t\022\030\n\024MESSAGE_PING_REQUEST\020" +
-      "\013\022\031\n\025MESSAGE_PING_RESPONSE\020\014\022\035\n\031MESSAGE_" +
-      "NAV_FOCUS_REQUEST\020\r\022\"\n\036MESSAGE_NAV_FOCUS" +
-      "_NOTIFICATION\020\016\022\032\n\026MESSAGE_BYEBYE_REQUES" +
-      "T\020\017\022\033\n\027MESSAGE_BYEBYE_RESPONSE\020\020\022&\n\"MESS" +
-      "AGE_VOICE_SESSION_NOTIFICATION\020\021\022\037\n\033MESS" +
-      "AGE_AUDIO_FOCUS_REQUEST\020\022\022$\n MESSAGE_AUD" +
-      "IO_FOCUS_NOTIFICATION\020\023\022)\n%MESSAGE_CAR_C" +
-      "ONNECTED_DEVICES_REQUEST\020\024\022*\n&MESSAGE_CA" +
-      "R_CONNECTED_DEVICES_RESPONSE\020\025\022\037\n\033MESSAG" +
-      "E_USER_SWITCH_REQUEST\020\026\022\'\n#MESSAGE_BATTE" +
-      "RY_STATUS_NOTIFICATION\020\027\022$\n MESSAGE_CALL" +
-      "_AVAILABILITY_STATUS\020\030\022 \n\034MESSAGE_USER_S" +
-      "WITCH_RESPONSE\020\031\022$\n MESSAGE_SERVICE_DISC" +
-      "OVERY_UPDATE\020\032\022\037\n\032MESSAGE_UNEXPECTED_MES" +
-      "SAGE\020\377\001\022\033\n\025MESSAGE_FRAMING_ERROR\020\377\377\003*\311\001\n" +
-      "\026BluetoothPairingMethod\022*\n\035BLUETOOTH_PAI" +
-      "RING_UNAVAILABLE\020\377\377\377\377\377\377\377\377\377\001\022\031\n\025BLUETOOTH" +
-      "_PAIRING_OOB\020\001\022(\n$BLUETOOTH_PAIRING_NUME" +
-      "RIC_COMPARISON\020\002\022#\n\037BLUETOOTH_PAIRING_PA" +
-      "SSKEY_ENTRY\020\003\022\031\n\025BLUETOOTH_PAIRING_PIN\020\004" +
-      "*z\n\014ByeByeReason\022\022\n\016USER_SELECTION\020\001\022\021\n\r" +
-      "DEVICE_SWITCH\020\002\022\021\n\rNOT_SUPPORTED\020\003\022\033\n\027NO" +
-      "T_CURRENTLY_SUPPORTED\020\004\022\023\n\017PROBE_SUPPORT" +
-      "ED\020\005*~\n\016DriverPosition\022\030\n\024DRIVER_POSITIO" +
-      "N_LEFT\020\000\022\031\n\025DRIVER_POSITION_RIGHT\020\001\022\032\n\026D" +
-      "RIVER_POSITION_CENTER\020\002\022\033\n\027DRIVER_POSITI" +
-      "ON_UNKNOWN\020\003*=\n\014NavFocusType\022\024\n\020NAV_FOCU" +
-      "S_NATIVE\020\001\022\027\n\023NAV_FOCUS_PROJECTED\020\002B\tB\007C" +
-      "ontrol"
+      ".proto.Service.PhoneStatus_State\022\035\n\025call" +
+      "_duration_seconds\030\002 \001(\r\022\025\n\rcaller_number" +
+      "\030\003 \001(\t\022\021\n\tcaller_id\030\004 \001(\t\022\032\n\022caller_numb" +
+      "er_type\030\005 \001(\t\022\021\n\tthumbnail\030\006 \001(\014\032=\n\021Phon" +
+      "eStatus_Input\022\025\n\rcaller_number\030\001 \001(\t\022\021\n\t" +
+      "caller_id\030\002 \001(\t\032\206\001\n\022PhoneStatusService\022W" +
+      "\n\005calls\030\001 \003(\0132H.com.andrerinas.openheadu" +
+      "nit.aap.protocol.proto.Service.PhoneStat" +
+      "us_Call\022\027\n\017signal_strength\030\002 \001(\r\032P\n\026Vend" +
+      "orExtensionService\022\014\n\004name\030\001 \001(\t\022\032\n\022pack" +
+      "age_white_list\030\002 \003(\t\022\014\n\004data\030\003 \001(\014\032\034\n\032Ge" +
+      "nericNotificationService\032/\n\025WifiProjecti" +
+      "onService\022\026\n\016car_wifi_bssid\030\001 \001(\t\"d\n\021Pho" +
+      "neStatus_State\022\n\n\006InCall\020\001\022\n\n\006OnHold\020\002\022\r" +
+      "\n\tHangingUp\020\003\022\014\n\010Incoming\020\004\022\t\n\005Muted\020\005\022\017" +
+      "\n\013Conferenced\020\006\"B\n\027ServiceDiscoveryReque" +
+      "st\022\022\n\nphone_name\030\004 \002(\t\022\023\n\013phone_brand\030\005 " +
+      "\002(\t\"\313\005\n\030ServiceDiscoveryResponse\022I\n\010serv" +
+      "ices\030\001 \003(\01327.com.andrerinas.openheadunit" +
+      ".aap.protocol.proto.Service\022\014\n\004make\030\002 \002(" +
+      "\t\022\r\n\005model\030\003 \002(\t\022\014\n\004year\030\004 \002(\t\022\022\n\nvehicl" +
+      "e_id\030\005 \002(\t\022W\n\017driver_position\030\006 \002(\0162>.co" +
+      "m.andrerinas.openheadunit.aap.protocol.p" +
+      "roto.DriverPosition\022\026\n\016head_unit_make\030\007 " +
+      "\002(\t\022\027\n\017head_unit_model\030\010 \002(\t\022 \n\030head_uni" +
+      "t_software_build\030\t \002(\t\022\"\n\032head_unit_soft" +
+      "ware_version\030\n \002(\t\022\'\n\037can_play_native_me" +
+      "dia_during_vr\030\013 \002(\010\022\034\n\024hide_projected_cl" +
+      "ock\030\014 \001(\010\022\035\n\025session_configuration\030\r \001(\005" +
+      "\022\024\n\014display_name\030\016 \001(\t\022\031\n\021probe_for_supp" +
+      "ort\030\017 \001(\010\022i\n\030connection_configuration\030\020 " +
+      "\001(\0132G.com.andrerinas.openheadunit.aap.pr" +
+      "otocol.proto.ConnectionConfiguration\022S\n\r" +
+      "headunit_info\030\021 \001(\0132<.com.andrerinas.ope" +
+      "nheadunit.aap.protocol.proto.HeadUnitInf" +
+      "o\"{\n\021PingConfiguration\022\022\n\ntimeout_ms\030\001 \001" +
+      "(\r\022\023\n\013interval_ms\030\002 \001(\r\022!\n\031high_latency_" +
+      "threshold_ms\030\003 \001(\r\022\032\n\022tracked_ping_count" +
+      "\030\004 \001(\r\"\322\001\n\030WirelessTcpConfiguration\022)\n\035s" +
+      "ocket_receive_buffer_size_kb\030\001 \001(\rB\002\030\001\022&" +
+      "\n\032socket_send_buffer_size_kb\030\002 \001(\rB\002\030\001\022\036" +
+      "\n\026socket_read_timeout_ms\030\003 \001(\r\022\"\n\032socket" +
+      "_receive_buffer_size\030\004 \001(\r\022\037\n\027socket_sen" +
+      "d_buffer_size\030\005 \001(\r\"\346\001\n\027ConnectionConfig" +
+      "uration\022]\n\022ping_configuration\030\001 \001(\0132A.co" +
+      "m.andrerinas.openheadunit.aap.protocol.p" +
+      "roto.PingConfiguration\022l\n\032wireless_tcp_c" +
+      "onfiguration\030\002 \001(\0132H.com.andrerinas.open" +
+      "headunit.aap.protocol.proto.WirelessTcpC" +
+      "onfiguration\"1\n\025VersionRequestOptions\022\030\n" +
+      "\020snapshot_version\030\001 \001(\003\"\203\001\n\026VersionRespo" +
+      "nseOptions\022i\n\030connection_configuration\030\001" +
+      " \001(\0132G.com.andrerinas.openheadunit.aap.p" +
+      "rotocol.proto.ConnectionConfiguration\"b\n" +
+      "\026ServiceDiscoveryUpdate\022H\n\007service\030\001 \001(\013" +
+      "27.com.andrerinas.openheadunit.aap.proto" +
+      "col.proto.Service\":\n\022ChannelOpenRequest\022" +
+      "\020\n\010priority\030\001 \002(\021\022\022\n\nservice_id\030\002 \002(\005\"d\n" +
+      "\023ChannelOpenResponse\022M\n\006status\030\001 \002(\0162=.c" +
+      "om.andrerinas.openheadunit.aap.protocol." +
+      "proto.MessageStatus\"4\n\013PingRequest\022\021\n\tti" +
+      "mestamp\030\001 \002(\003\022\022\n\nbug_report\030\002 \001(\005\"!\n\014Pin" +
+      "gResponse\022\021\n\ttimestamp\030\001 \002(\003\"]\n\rByeByeRe" +
+      "quest\022L\n\006reason\030\001 \002(\0162<.com.andrerinas.o" +
+      "penheadunit.aap.protocol.proto.ByeByeRea" +
+      "son\"\020\n\016ByeByeResponse\"\314\001\n\030VoiceSessionNo" +
+      "tification\022k\n\006status\030\001 \002(\0162[.com.andreri" +
+      "nas.openheadunit.aap.protocol.proto.Voic" +
+      "eSessionNotification.VoiceSessionStatus\"" +
+      "C\n\022VoiceSessionStatus\022\026\n\022VOICE_STATUS_ST" +
+      "ART\020\001\022\025\n\021VOICE_STATUS_STOP\020\002\"\200\002\n\035AudioFo" +
+      "cusRequestNotification\022t\n\007request\030\001 \001(\0162" +
+      "c.com.andrerinas.openheadunit.aap.protoc" +
+      "ol.proto.AudioFocusRequestNotification.A" +
+      "udioFocusRequestType\"i\n\025AudioFocusReques" +
+      "tType\022\010\n\004NONE\020\000\022\010\n\004GAIN\020\001\022\022\n\016GAIN_TRANSI" +
+      "ENT\020\002\022\033\n\027GAIN_TRANSIENT_MAY_DUCK\020\003\022\013\n\007RE" +
+      "LEASE\020\004\"\360\002\n\026AudioFocusNotification\022o\n\013fo" +
+      "cus_state\030\001 \002(\0162Z.com.andrerinas.openhea" +
+      "dunit.aap.protocol.proto.AudioFocusNotif" +
+      "ication.AudioFocusStateType\022\023\n\013unsolicit" +
+      "ed\030\002 \001(\010\"\317\001\n\023AudioFocusStateType\022\016\n\nSTAT" +
+      "E_GAIN\020\001\022\030\n\024STATE_GAIN_TRANSIENT\020\002\022\016\n\nST" +
+      "ATE_LOSS\020\003\022!\n\035STATE_LOSS_TRANSIENT_CAN_D" +
+      "UCK\020\004\022\030\n\024STATE_LOSS_TRANSIENT\020\005\022\031\n\025STATE" +
+      "_GAIN_MEDIA_ONLY\020\006\022&\n\"STATE_GAIN_TRANSIE" +
+      "NT_GUIDANCE_ONLY\020\007\"o\n\033NavFocusRequestNot" +
+      "ification\022P\n\nfocus_type\030\001 \001(\0162<.com.andr" +
+      "erinas.openheadunit.aap.protocol.proto.N" +
+      "avFocusType\"h\n\024NavFocusNotification\022P\n\nf" +
+      "ocus_type\030\001 \002(\0162<.com.andrerinas.openhea" +
+      "dunit.aap.protocol.proto.NavFocusType\"f\n" +
+      "\031BatteryStatusNotification\022\025\n\rbattery_le" +
+      "vel\030\001 \002(\r\022\030\n\020time_remaining_s\030\002 \001(\r\022\030\n\020c" +
+      "ritical_battery\030\003 \001(\010\"9\n\017ConnectedDevice" +
+      "\022\023\n\013device_name\030\001 \001(\t\022\021\n\tdevice_id\030\002 \001(\005" +
+      "\"\240\001\n\023CarConnectedDevices\022Z\n\021connected_de" +
+      "vices\030\001 \003(\0132?.com.andrerinas.openheaduni" +
+      "t.aap.protocol.proto.ConnectedDevice\022\023\n\013" +
+      "unsolicited\030\002 \001(\010\022\030\n\nfinal_list\030\003 \001(\010:\004t" +
+      "rue\"\367\004\n\022UserSwitchResponse\022c\n\006status\030\001 \001" +
+      "(\0162S.com.andrerinas.openheadunit.aap.pro" +
+      "tocol.proto.UserSwitchResponse.UserSwitc" +
+      "hStatus\022X\n\017selected_device\030\002 \001(\0132?.com.a" +
+      "ndrerinas.openheadunit.aap.protocol.prot" +
+      "o.ConnectedDevice\"\241\003\n\020UserSwitchStatus\022\"" +
+      "\n\025ERROR_REQUEST_TIMEOUT\020\367\377\377\377\377\377\377\377\377\001\022\"\n\025ER" +
+      "ROR_INVALID_REQUEST\020\370\377\377\377\377\377\377\377\377\001\022\036\n\021ERROR_" +
+      "HU_INTERNAL\020\371\377\377\377\377\377\377\377\377\001\022/\n\"ERROR_MULTIPLE" +
+      "_USER_SWITCH_REQUEST\020\372\377\377\377\377\377\377\377\377\001\022/\n\"ERROR" +
+      "_PHONE_UNABLE_TO_CONNECT_WIFI\020\373\377\377\377\377\377\377\377\377\001" +
+      "\0226\n)ERROR_INCOMPATIBLE_PHONE_PROTOCOL_VE" +
+      "RSION\020\374\377\377\377\377\377\377\377\377\001\022(\n\033ERROR_BT_CLOSED_AFTE" +
+      "R_START\020\375\377\377\377\377\377\377\377\377\001\022)\n\034ERROR_BT_CLOSED_BE" +
+      "FORE_START\020\376\377\377\377\377\377\377\377\377\001\022\'\n\032ERROR_NO_RFCOMM" +
+      "_CONNECTION\020\377\377\377\377\377\377\377\377\377\001\022\r\n\tSTATUS_OK\020\000\"0\n" +
+      "\026CallAvailabilityStatus\022\026\n\016call_availabl" +
+      "e\030\001 \001(\010*\255\007\n\016ControlMsgType\022\033\n\027MESSAGE_VE" +
+      "RSION_REQUEST\020\001\022\034\n\030MESSAGE_VERSION_RESPO" +
+      "NSE\020\002\022\034\n\030MESSAGE_ENCAPSULATED_SSL\020\003\022\031\n\025M" +
+      "ESSAGE_AUTH_COMPLETE\020\004\022%\n!MESSAGE_SERVIC" +
+      "E_DISCOVERY_REQUEST\020\005\022&\n\"MESSAGE_SERVICE" +
+      "_DISCOVERY_RESPONSE\020\006\022 \n\034MESSAGE_CHANNEL" +
+      "_OPEN_REQUEST\020\007\022!\n\035MESSAGE_CHANNEL_OPEN_" +
+      "RESPONSE\020\010\022&\n\"MESSAGE_CHANNEL_CLOSE_NOTI" +
+      "FICATION\020\t\022\030\n\024MESSAGE_PING_REQUEST\020\013\022\031\n\025" +
+      "MESSAGE_PING_RESPONSE\020\014\022\035\n\031MESSAGE_NAV_F" +
+      "OCUS_REQUEST\020\r\022\"\n\036MESSAGE_NAV_FOCUS_NOTI" +
+      "FICATION\020\016\022\032\n\026MESSAGE_BYEBYE_REQUEST\020\017\022\033" +
+      "\n\027MESSAGE_BYEBYE_RESPONSE\020\020\022&\n\"MESSAGE_V" +
+      "OICE_SESSION_NOTIFICATION\020\021\022\037\n\033MESSAGE_A" +
+      "UDIO_FOCUS_REQUEST\020\022\022$\n MESSAGE_AUDIO_FO" +
+      "CUS_NOTIFICATION\020\023\022)\n%MESSAGE_CAR_CONNEC" +
+      "TED_DEVICES_REQUEST\020\024\022*\n&MESSAGE_CAR_CON" +
+      "NECTED_DEVICES_RESPONSE\020\025\022\037\n\033MESSAGE_USE" +
+      "R_SWITCH_REQUEST\020\026\022\'\n#MESSAGE_BATTERY_ST" +
+      "ATUS_NOTIFICATION\020\027\022$\n MESSAGE_CALL_AVAI" +
+      "LABILITY_STATUS\020\030\022 \n\034MESSAGE_USER_SWITCH" +
+      "_RESPONSE\020\031\022$\n MESSAGE_SERVICE_DISCOVERY" +
+      "_UPDATE\020\032\022\037\n\032MESSAGE_UNEXPECTED_MESSAGE\020" +
+      "\377\001\022\033\n\025MESSAGE_FRAMING_ERROR\020\377\377\003*\311\001\n\026Blue" +
+      "toothPairingMethod\022*\n\035BLUETOOTH_PAIRING_" +
+      "UNAVAILABLE\020\377\377\377\377\377\377\377\377\377\001\022\031\n\025BLUETOOTH_PAIR" +
+      "ING_OOB\020\001\022(\n$BLUETOOTH_PAIRING_NUMERIC_C" +
+      "OMPARISON\020\002\022#\n\037BLUETOOTH_PAIRING_PASSKEY" +
+      "_ENTRY\020\003\022\031\n\025BLUETOOTH_PAIRING_PIN\020\004*z\n\014B" +
+      "yeByeReason\022\022\n\016USER_SELECTION\020\001\022\021\n\rDEVIC" +
+      "E_SWITCH\020\002\022\021\n\rNOT_SUPPORTED\020\003\022\033\n\027NOT_CUR" +
+      "RENTLY_SUPPORTED\020\004\022\023\n\017PROBE_SUPPORTED\020\005*" +
+      "~\n\016DriverPosition\022\030\n\024DRIVER_POSITION_LEF" +
+      "T\020\000\022\031\n\025DRIVER_POSITION_RIGHT\020\001\022\032\n\026DRIVER" +
+      "_POSITION_CENTER\020\002\022\033\n\027DRIVER_POSITION_UN" +
+      "KNOWN\020\003*=\n\014NavFocusType\022\024\n\020NAV_FOCUS_NAT" +
+      "IVE\020\001\022\027\n\023NAV_FOCUS_PROJECTED\020\002B\tB\007Contro" +
+      "l"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -37679,7 +37878,7 @@ public final class Control {
     internal_static_com_andrerinas_openheadunit_aap_protocol_proto_Service_SensorSourceService_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_com_andrerinas_openheadunit_aap_protocol_proto_Service_SensorSourceService_descriptor,
-        new java.lang.String[] { "Sensors", });
+        new java.lang.String[] { "Sensors", "LocationCharacterization", });
     internal_static_com_andrerinas_openheadunit_aap_protocol_proto_Service_SensorSourceService_Sensor_descriptor =
       internal_static_com_andrerinas_openheadunit_aap_protocol_proto_Service_SensorSourceService_descriptor.getNestedTypes().get(0);
     internal_static_com_andrerinas_openheadunit_aap_protocol_proto_Service_SensorSourceService_Sensor_fieldAccessorTable = new

@@ -3,6 +3,7 @@ package com.andrerinas.openheadunit.aap.protocol.messages
 import android.content.Context
 import com.andrerinas.openheadunit.App
 import com.andrerinas.openheadunit.aap.AapMessage
+import com.andrerinas.openheadunit.aap.LocationCharacterizationPolicy
 import com.andrerinas.openheadunit.aap.NarrowBandProfilePolicy
 import com.andrerinas.openheadunit.aap.VehicleIdentityPolicy
 import com.andrerinas.openheadunit.aap.VehicleTypePolicy
@@ -38,6 +39,16 @@ internal class ServiceDiscoveryResponse(context: Context, audioConfig: AudioSess
                     sources.addSensors(makeSensorType(Sensors.SensorType.DRIVING_STATUS))
                     if (settings.useGpsForNavigation) {
                         sources.addSensors(makeSensorType(Sensors.SensorType.LOCATION))
+                    }
+                    // Announced beside the LOCATION sensor rather than instead of it: the sensor
+                    // says a position is available, this says what kind of position it is. Sending
+                    // the sensor without it is what the head unit did before, and the phone kept
+                    // navigating from its own GPS. The phone echoes the value back in its own log
+                    // as "locationCharacterization=N", so a drive log shows whether it arrived.
+                    LocationCharacterizationPolicy.announced(settings.useGpsForNavigation)?.let {
+                        sources.locationCharacterization = it
+                        AppLog.i("[ServiceDiscovery] Announcing LOCATION sensor, " +
+                            "characterization=$it (RAW_GPS_ONLY)")
                     }
 
                     // Always announce Night sensor, as we control it via NightModeManager

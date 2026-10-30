@@ -73,6 +73,17 @@ message Service
             required SensorType type = 1;
         }
         repeated Sensor sensors = 1;
+
+        // How this head unit's position is derived, as a bitmask of LocationCharacterization.
+        // Android Auto parses it and prints it back on the phone as "locationCharacterization=N"
+        // in the service it logs on connect, which is how a head unit can check that the value
+        // arrived at all.
+        //
+        // It does not change what the phone navigates from: three drives announcing 0, 256 and 255
+        // were sourced identically. Leaving it unset means 0, which declares nothing about the
+        // source, and sending the truth instead is the only reason this field is set. See
+        // LocationCharacterizationPolicy.
+        optional uint32 location_characterization = 2;
     }
 
     message MediaSinkService
