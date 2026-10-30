@@ -102,3 +102,119 @@ so that strip falls outside the window.
 The code calls this feature **CanvasExtension**. The UI never calls it "fullscreen", because
 OHU's existing **Fullscreen** setting is something else: it hides Android's own status and
 navigation bars.
+
+## Navigation hints on the instrument cluster
+
+Android Auto sends the whole turn-by-turn stream to the head unit, but a head unit has no way to
+reach the car's own dashboard: the instrument cluster is driven over the vehicle bus by an OEM or
+community service, never by an ordinary app. This tweak hands each maneuver to a head unit mod
+that *can* draw on it, so the next arrow, the road it leads onto and the distance to it appear
+between the dials instead of only on the projection.
+
+It is off by default, and does nothing at all on a unit without such a mod.
+
+### Using it
+
+1. Install the mod that drives your cluster. The only one seen in the wild is **VoyahTweaks**
+   (`ru.kachalin.voyahtweaks`), on Voyah and Pateo units.
+2. In **Settings**, under **Navigation**, turn on **Navigation hints on dashboard**.
+3. Start a route on the phone. The arrow follows the maneuver Android Auto is announcing, and goes
+   away when the route ends.
+
+This is not the **Navigation notifications** setting above it. That one posts Open Headunit's own
+notification on the head unit's screen; this one sends nothing to the screen and everything to the
+dashboard. The two are independent and can be used together or apart.
+
+### What reaches the cluster
+
+Four values per maneuver: an arrow id, the road the maneuver leads onto, the distance, and the
+unit — always metres, at every distance.
+
+| Android Auto maneuver | Arrow |
+|---|---|
+| Turn, sharp turn | `LEFT` / `RIGHT` |
+| Slight turn | `SLIGHT_LEFT` / `SLIGHT_RIGHT` |
+| On-ramp, off-ramp, fork, merge | `SLIGHT_LEFT` / `SLIGHT_RIGHT` |
+| U-turn | `UTURN_LEFT` / `UTURN_RIGHT` |
+| Roundabout enter, enter-and-exit | `ENTER_ROUNDABOUT` |
+| Roundabout exit | `LEAVE_ROUNDABOUT` |
+| Depart, straight, name change, ferry, destination | none |
+
+### What it cannot do
+
+- **An unsided turn draws no arrow.** Android Auto sends `UNSPECIFIED` for the turn side more
+  often than one would like, and this vocabulary has no neutral turn to fall back on. Guessing a
+  hand for a U-turn would be right in left-hand-drive countries and wrong in the rest, so an
+  unsided maneuver goes out with no arrow rather than the wrong one.
+- **The road name can lag by a turn.** `road` is `required` in the protocol, so the phone must put
+  something there even for a turn onto an unnamed street — and what it puts is the previous
+  maneuver's road. One captured drive ends with the same name on four consecutive maneuvers. A
+  repeat cannot be told from a genuine one, because a route can legitimately turn onto a road and
+  then U-turn back onto it, so nothing here can repair it.
+- **Ramps are drawn as slight turns.** `EXIT_LEFT` and `EXIT_RIGHT` were described by the
+  VoyahTweaks author but appear in no capture, so they are never sent: an id the cluster does not
+  recognise most likely draws nothing at all.
+
+### How it works
+
+Open Headunit broadcasts `ru.encars.UPDATE_MANEUVER` with the maneuver in its extras, targeted at
+the mod's package. The broadcast carries no permission — it cannot, because the consumer is a
+third-party app that has never heard of Open Headunit — so `setPackage` is what keeps a maneuver
+stream off every other app on the unit. The package is also listed in the manifest's `<queries>`
+block: Android 11, which these units run, filters package visibility, and a target the app cannot
+see fails the broadcast silently.
+
+Yandex Maps reaches the same receiver, but only because VoyahTweaks injects a Frida hook into it
+to make it broadcast. Open Headunit needs no hook: it already parses the navigation channel, so
+sending the broadcast is the entire integration.
+
+- **The heartbeat.** The protocol has no "still valid" message — the consumer holds the arrow only
+  while broadcasts keep arriving, and expires it when they stop. So the last maneuver is re-sent
+  once a second on a timer of OHU's own. Repeating whatever Android Auto last said is not enough
+  on its own, because Android Auto drives its updates off the phone's position: a car stopped in
+  traffic freezes the distance, identical payloads stop being sent, and the arrow disappears off
+  the dashboard. One second is the cadence Yandex is observed to use, and so the only one proven
+  to hold the arrow.
+- **Ending a route.** The cluster is cleared as soon as the cluster status goes anything other
+  than ACTIVE or REROUTING. `INSTRUMENT_CLUSTER_STOP` looks like the obvious hook and is not — it
+  never arrives at all on the unit this was built against. REROUTING deliberately holds the arrow:
+  a second of a stale maneuver beats blanking the dashboard every time the phone recalculates.
+- **Backstops.** The heartbeat gives up on its own if the phone says nothing for 10 seconds, so a
+  session that dies mid-route cannot pin its last turn to the dashboard for the life of the
+  process, or put two broadcasters on one cluster when the next session starts. A payload with no
+  arrow, no road and no distance left is not refreshed either — letting it lapse is what stops a
+  finished route pinning "0 m" to the dials.
+- **The distance is a `Double`**, not the `Float` the mod's author described. Every captured value
+  has full double precision, and a consumer reading the extra as the other type gets its default
+  of zero instead.
+
+### Where the vocabulary came from
+
+Two sources that disagree, so the code records both. The VoyahTweaks author listed eight arrow
+ids. Three routes sniffed off Yandex with Frida — 1514 broadcasts — contain `LEFT` (899), `RIGHT`
+(445), `ENTER_ROUNDABOUT` (71), `SLIGHT_RIGHT` (64), `LEAVE_ROUNDABOUT` (14) and the empty string
+(21). `SLIGHT_RIGHT` is in no list the author gave, and neither `EXIT_` value was ever observed.
+
+The captures are treated as authoritative and the author's list as a hint, because a maneuver
+drawn as the wrong arrow is worse than one drawn as no arrow. Anything that cannot be mapped
+confidently is sent as no arrow rather than a guess.
+
+### Code
+
+| Part | Where |
+|---|---|
+| Arrow table, road and distance rules, the timings | `aap/navigation/EncarsManeuverPolicy.kt` |
+| The broadcast itself and the heartbeat timer | `aap/navigation/EncarsNavigationSink.kt` |
+| Feeding it from the navigation channel | `aap/AapNavigationHelper.kt` |
+| Clearing it when the route ends | `aap/AapNavigation.kt` |
+| Clearing it when the session ends | `aap/AapService.kt`, on disconnect |
+| Which road names a maneuver, not the accumulated street | `aap/NavigationRoadPolicy.kt` |
+| The one process-wide sink, so a new session cannot start a second one | `AppComponent.kt` |
+| Persisted setting | `utils/Settings.kt`, key `encars-navigation-broadcast` |
+| Package visibility for the target | `AndroidManifest.xml`, `<queries>` |
+
+`EncarsManeuverPolicy`'s KDoc is where the reasoning lives: what each capture showed, which
+constants are guarded against an unmeasured deadline, and which real-car report forced each one.
+Read it before changing a number.
+
+The code calls this feature **Encars**, after the `ru.encars.UPDATE_MANEUVER` broadcast it speaks.
