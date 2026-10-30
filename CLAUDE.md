@@ -13,6 +13,10 @@ Gradle multi-project: `:app` (everything) and `:contract` (a tiny library holdin
 automation intent constants — see `contract/README.md`, which is the authoritative reference for
 the broadcast/deep-link automation surface).
 
+This repository is a fork (see **Fork versioning** below). The features it adds to upstream are
+described in `TWEAKS.md`: what each does, how to use it, and where its code lives. Read it before
+changing one of them, and add an entry there for each new one.
+
 ## Build and test
 
 Windows shell: use `gradlew.bat`; the commands below use the `./gradlew` spelling.
