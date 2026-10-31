@@ -4026,6 +4026,8 @@ class AapService : Service() {
         const val ACTION_NIGHT_MODE_CHANGED      = "com.andrerinas.openheadunit.ACTION_NIGHT_MODE_CHANGED"
         const val ACTION_ORIENTATION_CHANGED     = "com.andrerinas.openheadunit.ACTION_ORIENTATION_CHANGED"
         const val ACTION_TOGGLE_HIDE_AA_BAR      = "com.andrerinas.openheadunit.ACTION_TOGGLE_HIDE_AA_BAR"
+        /** The stored hide-bar on/off changed outside the projection; it re-applies it. */
+        const val ACTION_CANVAS_EXTENSION_CHANGED = "com.andrerinas.openheadunit.ACTION_CANVAS_EXTENSION_CHANGED"
         const val ACTION_REFRESH_SENSORS         = "com.andrerinas.openheadunit.aap.action.REFRESH_SENSORS"
         const val ACTION_RESTART_AUDIO           = "com.andrerinas.openheadunit.aap.action.RESTART_AUDIO"
         const val ACTION_RAISE_PROJECTION        = "com.andrerinas.openheadunit.aap.action.RAISE_PROJECTION"

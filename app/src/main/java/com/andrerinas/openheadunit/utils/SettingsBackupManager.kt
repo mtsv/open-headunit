@@ -93,6 +93,7 @@ object SettingsBackupManager {
         "voyah-steer-enabled" to ValueType.BOOLEAN,
         "voyah-steer-voice-long" to ValueType.BOOLEAN,
         "voyah-steer-phone-long" to ValueType.BOOLEAN,
+        "voyah-steer-show-aa-bar" to ValueType.BOOLEAN,
         Settings.KEY_SYNC_MEDIA_SESSION_AA_METADATA to ValueType.BOOLEAN,
         "night-mode" to ValueType.INT,
         "night-mode-threshold-lux" to ValueType.INT,

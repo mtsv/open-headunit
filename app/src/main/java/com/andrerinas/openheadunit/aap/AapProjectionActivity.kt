@@ -144,6 +144,7 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
     private var isOrientationReceiverRegistered = false
     private var isNightModeReceiverRegistered = false
     private var isFinishReceiverRegistered = false
+    private var isCanvasExtensionChangedReceiverRegistered = false
     private var isKeyEventReceiverRegistered = false
     private var isSettingsReceiverRegistered = false
     private var isHideAaBarReceiverRegistered = false
@@ -1033,6 +1034,18 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         }
     }
 
+    // The stored on/off changed elsewhere (a steering long press showing the bar). Registered for
+    // the activity's whole life, not just while resumed: the press raises a paused projection, and
+    // resuming does not re-read the setting.
+    private val canvasExtensionChangedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != AapService.ACTION_CANVAS_EXTENSION_CHANGED) return
+            AppLog.i("AapProjectionActivity: AA bar ${if (settings.canvasExtensionActive) "hidden" else "shown"} from outside")
+            applyCanvasExtension()
+            updateHideAaBarButton()
+        }
+    }
+
     private val finishReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == "com.andrerinas.openheadunit.ACTION_FINISH_ACTIVITIES") {
@@ -1191,6 +1204,8 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
 
         ContextCompat.registerReceiver(this, finishReceiver, android.content.IntentFilter("com.andrerinas.openheadunit.ACTION_FINISH_ACTIVITIES"), ContextCompat.RECEIVER_NOT_EXPORTED)
         isFinishReceiverRegistered = true
+        ContextCompat.registerReceiver(this, canvasExtensionChangedReceiver, IntentFilter(AapService.ACTION_CANVAS_EXTENSION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        isCanvasExtensionChangedReceiverRegistered = true
 
         AppLog.i("HeadUnit for Android Auto (tm) - Copyright 2011-2015 Michael A. Reid., since 2025 André Rinas All Rights Reserved...")
 
@@ -2578,6 +2593,10 @@ class AapProjectionActivity : SurfaceActivity(), IProjectionView.Callbacks, Vide
         if (isFinishReceiverRegistered) {
             unregisterReceiver(finishReceiver)
             isFinishReceiverRegistered = false
+        }
+        if (isCanvasExtensionChangedReceiverRegistered) {
+            unregisterReceiver(canvasExtensionChangedReceiver)
+            isCanvasExtensionChangedReceiverRegistered = false
         }
         if (isKeyEventReceiverRegistered) {
             unregisterReceiver(keyEventReceiver)

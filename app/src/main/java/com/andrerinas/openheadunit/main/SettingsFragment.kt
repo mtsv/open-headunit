@@ -174,6 +174,7 @@ class SettingsFragment : Fragment() {
     private var pendingVoyahSteerEnabled: Boolean? = null
     private var pendingVoyahSteerVoiceLong: Boolean? = null
     private var pendingVoyahSteerPhoneLong: Boolean? = null
+    private var pendingVoyahSteerShowAaBar: Boolean? = null
     private var pendingSyncMediaSessionAaMetadata: Boolean? = null
     private var pendingAutoResumePlaybackOnReconnect: Boolean? = null
     private var pendingResolution: Int? = null
@@ -368,6 +369,7 @@ class SettingsFragment : Fragment() {
         pendingVoyahSteerEnabled = settings.voyahSteerEnabled
         pendingVoyahSteerVoiceLong = settings.voyahSteerVoiceLong
         pendingVoyahSteerPhoneLong = settings.voyahSteerPhoneLong
+        pendingVoyahSteerShowAaBar = settings.voyahSteerShowAaBar
         pendingSyncMediaSessionAaMetadata = settings.syncMediaSessionWithAaMetadata
         pendingAutoResumePlaybackOnReconnect = settings.autoResumePlaybackOnReconnect
         pendingResolution = settings.resolutionId
@@ -541,6 +543,7 @@ class SettingsFragment : Fragment() {
         pendingVoyahSteerEnabled = settings.voyahSteerEnabled
         pendingVoyahSteerVoiceLong = settings.voyahSteerVoiceLong
         pendingVoyahSteerPhoneLong = settings.voyahSteerPhoneLong
+        pendingVoyahSteerShowAaBar = settings.voyahSteerShowAaBar
         pendingSyncMediaSessionAaMetadata = settings.syncMediaSessionWithAaMetadata
         pendingAutoResumePlaybackOnReconnect = settings.autoResumePlaybackOnReconnect
         pendingResolution = settings.resolutionId
@@ -771,6 +774,7 @@ class SettingsFragment : Fragment() {
         pendingVoyahSteerEnabled?.let { if (it != settings.voyahSteerEnabled) settings.voyahSteerEnabled = it }
         pendingVoyahSteerVoiceLong?.let { if (it != settings.voyahSteerVoiceLong) settings.voyahSteerVoiceLong = it }
         pendingVoyahSteerPhoneLong?.let { if (it != settings.voyahSteerPhoneLong) settings.voyahSteerPhoneLong = it }
+        pendingVoyahSteerShowAaBar?.let { if (it != settings.voyahSteerShowAaBar) settings.voyahSteerShowAaBar = it }
         pendingSyncMediaSessionAaMetadata?.let { if (it != settings.syncMediaSessionWithAaMetadata) settings.syncMediaSessionWithAaMetadata = it }
         pendingAutoResumePlaybackOnReconnect?.let { if (it != settings.autoResumePlaybackOnReconnect) settings.autoResumePlaybackOnReconnect = it }
         // The way back from a link the app measured as too slow: it lowered the profile after three
@@ -981,6 +985,7 @@ class SettingsFragment : Fragment() {
                         pendingVoyahSteerEnabled != settings.voyahSteerEnabled ||
                         pendingVoyahSteerVoiceLong != settings.voyahSteerVoiceLong ||
                         pendingVoyahSteerPhoneLong != settings.voyahSteerPhoneLong ||
+                        pendingVoyahSteerShowAaBar != settings.voyahSteerShowAaBar ||
                         pendingSyncMediaSessionAaMetadata != settings.syncMediaSessionWithAaMetadata ||
                         pendingAutoResumePlaybackOnReconnect != settings.autoResumePlaybackOnReconnect ||
                         pendingResolution != settings.resolutionId ||
@@ -2781,6 +2786,17 @@ class SettingsFragment : Fragment() {
                     isChecked = pendingVoyahSteerPhoneLong ?: settings.voyahSteerPhoneLong,
                     onCheckedChanged = { isChecked ->
                         pendingVoyahSteerPhoneLong = isChecked
+                        checkChanges()
+                        updateSettingsList()
+                    }
+                ))
+                items.add(SettingItem.ToggleSettingEntry(
+                    stableId = "voyahSteerShowAaBar",
+                    nameResId = R.string.voyah_steer_show_aa_bar,
+                    descriptionResId = R.string.voyah_steer_show_aa_bar_description,
+                    isChecked = pendingVoyahSteerShowAaBar ?: settings.voyahSteerShowAaBar,
+                    onCheckedChanged = { isChecked ->
+                        pendingVoyahSteerShowAaBar = isChecked
                         checkChanges()
                         updateSettingsList()
                     }

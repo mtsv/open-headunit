@@ -31,6 +31,9 @@ Whether the bar is hidden is remembered: the next session starts the way the las
 - **Quick Settings** over the projection has the same switch and the same **Hidden area** dialog.
 - **Key mapping** has a **Hide / Show Android Auto Bar** action, so a hardware or steering-wheel
   key can toggle it.
+- **Voyah steering wheel:** with **Show the Android Auto bar first** on, a long press of Voice or
+  Phone shows the bar before opening the assistant or the phone screen
+  (see [Voyah steering wheel](#voyah-steering-wheel-voice-and-phone)).
 
 ### The button
 
@@ -341,7 +344,12 @@ It is off by default, and the settings only appear on a head unit that has the V
 1. In **Settings**, under **Input**, turn on **Voyah steering wheel buttons**.
 2. **Long-press Voice: Google Assistant** and **Long-press Phone: Android Auto phone** are on by
    default; turn either off to leave that button alone.
-3. During a session, hold a button for about a second (the head unit's own long-press time).
+3. Optionally turn on **Show the Android Auto bar first** (off by default). If
+   [Hide Android Auto bar](#hide-android-auto-bar) has the bar hidden, a long press then shows it
+   after bringing Open Headunit to the front and before opening the assistant or the phone screen.
+   The bar stays shown afterwards; the `<->` button hides it again. The automation commands below
+   do the same.
+4. During a session, hold a button for about a second (the head unit's own long-press time).
 
 With no session, a long press of Voice does nothing (but the message still stays away), and a long
 press of Phone does what it always did: nothing.
@@ -418,7 +426,8 @@ back.
 |---|---|
 | Long vs short | `input/SteeringLongPressPolicy.kt`, fed by `KeyManagerApiShape.callbackFor` |
 | Which events are swallowed | `input/VoiceKeyConsumePolicy.kt` |
-| Raise, then assistant or phone | `aap/SteeringActionPolicy.kt`, run by `aap/SteeringActionRunner.kt` |
+| Raise, show the bar, then assistant or phone | `aap/SteeringActionPolicy.kt`, run by `aap/SteeringActionRunner.kt` |
+| Re-applying the bar shown from outside the projection | `ACTION_CANVAS_EXTENSION_CHANGED`, received in `aap/AapProjectionActivity.kt` |
 | Which SDK shapes are accepted | `connection/carkey/voyah/KeyManagerApiShape.kt` |
 | Loading the SDK from the unit, and the log dump | `connection/carkey/voyah/VoyahKeyManagerSdk.kt` |
 | The listeners | `connection/carkey/voyah/CarVoyahReceiver.kt` |

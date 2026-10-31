@@ -17,10 +17,14 @@ object SteeringActionRunner {
 
     fun run(context: Context, button: SteeringButton, source: String) {
         val commManager = App.provide(context).commManager
+        val settings = App.provide(context).settings
         val steps = SteeringActionPolicy.stepsFor(
             button = button,
             sessionLive = commManager.connectionState.value is ConnectionState.TransportStarted,
             projectionForeground = AapProjectionActivity.isForeground,
+            showBarFirst = settings.voyahSteerShowAaBar,
+            barEnabled = settings.canvasExtensionEnabled,
+            barHidden = settings.canvasExtensionActive,
         )
         AppLog.i("SteeringAction: $button from $source -> $steps")
         for (step in steps) {
@@ -28,6 +32,14 @@ object SteeringActionRunner {
                 SteeringActionPolicy.Step.RaiseProjection -> context.sendBroadcast(
                     Intent(AapService.ACTION_RAISE_PROJECTION).apply { setPackage(context.packageName) },
                 )
+                SteeringActionPolicy.Step.ShowAaBar -> {
+                    // Stored first, so a projection that is not there yet starts with the bar shown;
+                    // one that is (even paused behind another app) re-applies it on the broadcast.
+                    settings.canvasExtensionActive = false
+                    context.sendBroadcast(
+                        Intent(AapService.ACTION_CANVAS_EXTENSION_CHANGED).apply { setPackage(context.packageName) },
+                    )
+                }
                 SteeringActionPolicy.Step.ToggleAssistant -> commManager.sendToggleVoiceAssistant()
                 SteeringActionPolicy.Step.OpenPhone -> {
                     commManager.sendKey(KeyEvent.KEYCODE_CALL, true, null, source)

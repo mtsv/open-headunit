@@ -335,6 +335,17 @@ class Settings(private val context: Context) {
             prefs.edit().putBoolean("voyah-steer-phone-long", value).apply()
         }
 
+    /**
+     * A long press first shows the Android Auto bar if "Hide Android Auto bar" has it hidden
+     * ([com.andrerinas.openheadunit.aap.SteeringActionPolicy]). Also applies to the automation
+     * commands, which share the action.
+     */
+    var voyahSteerShowAaBar: Boolean
+        get() = prefs.getBoolean("voyah-steer-show-aa-bar", false)
+        set(value) {
+            prefs.edit().putBoolean("voyah-steer-show-aa-bar", value).apply()
+        }
+
     /** Mirror phone now-playing (title, artist, duration, art) in the system media session. */
     var syncMediaSessionWithAaMetadata: Boolean
         get() = prefs.getBoolean(KEY_SYNC_MEDIA_SESSION_AA_METADATA, false)

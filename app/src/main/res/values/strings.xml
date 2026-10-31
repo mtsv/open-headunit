@@ -880,6 +880,8 @@
     <string name="voyah_steer_voice_long_description">Opens the assistant in Android Auto, bringing it to the front. The head unit\'s own \"voice commands not implemented\" message no longer appears.</string>
     <string name="voyah_steer_phone_long">Long-press Phone: Android Auto phone</string>
     <string name="voyah_steer_phone_long_description">Opens the phone screen in Android Auto, bringing it to the front.</string>
+    <string name="voyah_steer_show_aa_bar">Show the Android Auto bar first</string>
+    <string name="voyah_steer_show_aa_bar_description">If Hide Android Auto bar has the bar hidden, a long press shows it before opening the assistant or the phone screen.</string>
     <string name="media_session_aa_status_placeholder">Connected</string>
     <string name="sync_media_session_aa_metadata">AA now playing on media session</string>
     <string name="sync_media_session_aa_metadata_description">Show track title, artist, duration and album art from the phone in the system media session and media notification.</string>
