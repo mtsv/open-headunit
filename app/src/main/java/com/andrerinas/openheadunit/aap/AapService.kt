@@ -65,6 +65,7 @@ import com.andrerinas.openheadunit.connection.ConnectionPriorityPolicy
 import com.andrerinas.openheadunit.connection.ConnectionStage
 import com.andrerinas.openheadunit.connection.ConnectionStageTracker
 import com.andrerinas.openheadunit.connection.carkey.CarKeysManager
+import com.andrerinas.openheadunit.input.SteeringButton
 import com.andrerinas.openheadunit.connection.wifi.NetworkDiscovery
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.MediaMetadataCompat
@@ -3500,6 +3501,10 @@ class AapService : Service() {
                 if (commManager.isConnected) raiseProjection()
                 else AppLog.i("AapService: raise projection ignored, no session")
             }
+            ACTION_VOICE_ASSISTANT       ->
+                SteeringActionRunner.run(this, SteeringButton.VOICE, "automation")
+            ACTION_OPEN_PHONE            ->
+                SteeringActionRunner.run(this, SteeringButton.PHONE, "automation")
             ACTION_NATIVE_AA_CANCEL_POKE -> {
                 AppLog.i("AapService: ACTION_NATIVE_AA_CANCEL_POKE received — user explicitly canceled driver selection")
                 userExitedAA = true
@@ -4024,12 +4029,15 @@ class AapService : Service() {
         const val ACTION_REFRESH_SENSORS         = "com.andrerinas.openheadunit.aap.action.REFRESH_SENSORS"
         const val ACTION_RESTART_AUDIO           = "com.andrerinas.openheadunit.aap.action.RESTART_AUDIO"
         const val ACTION_RAISE_PROJECTION        = "com.andrerinas.openheadunit.aap.action.RAISE_PROJECTION"
+        const val ACTION_VOICE_ASSISTANT         = "com.andrerinas.openheadunit.aap.action.VOICE_ASSISTANT"
+        const val ACTION_OPEN_PHONE              = "com.andrerinas.openheadunit.aap.action.OPEN_PHONE"
 
         /** Every action [onStartCommand] has a branch for; an automation relay outside it is dropped silently. */
         val HANDLED_START_ACTIONS: Set<String> = setOf(
             ACTION_STOP_SERVICE, ACTION_DISCONNECT, ACTION_STOP_WIRELESS, ACTION_CANCEL_WIRELESS,
             ACTION_START_WIRELESS_SCAN, ACTION_END_SESSION_STAY_ARMED, ACTION_NATIVE_AA_CANCEL_POKE,
             ACTION_RESTART_AUDIO, ACTION_REFRESH_SENSORS, ACTION_RAISE_PROJECTION,
+            ACTION_VOICE_ASSISTANT, ACTION_OPEN_PHONE,
         )
         /**
          * Sent after the caller has already invoked [CommManager.connect(socket)].

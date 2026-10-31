@@ -36,6 +36,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.andrerinas.openheadunit.App
 import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.aap.AapService
+import com.andrerinas.openheadunit.connection.carkey.voyah.VoyahKeyManagerSdk
 import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.CredentialField
 import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.NativeAaWakeDamagePolicy
 import com.andrerinas.openheadunit.connection.wifi.modes.nativeaa.zbt.ZbtProbe
@@ -170,6 +171,9 @@ class SettingsFragment : Fragment() {
     private var pendingUseGps: Boolean? = null
     private var pendingShowNavigationNotifications: Boolean? = null
     private var pendingEncarsNavigationBroadcast: Boolean? = null
+    private var pendingVoyahSteerEnabled: Boolean? = null
+    private var pendingVoyahSteerVoiceLong: Boolean? = null
+    private var pendingVoyahSteerPhoneLong: Boolean? = null
     private var pendingSyncMediaSessionAaMetadata: Boolean? = null
     private var pendingAutoResumePlaybackOnReconnect: Boolean? = null
     private var pendingResolution: Int? = null
@@ -361,6 +365,9 @@ class SettingsFragment : Fragment() {
         pendingUseGps = settings.useGpsForNavigation
         pendingShowNavigationNotifications = settings.showNavigationNotifications
         pendingEncarsNavigationBroadcast = settings.encarsNavigationBroadcast
+        pendingVoyahSteerEnabled = settings.voyahSteerEnabled
+        pendingVoyahSteerVoiceLong = settings.voyahSteerVoiceLong
+        pendingVoyahSteerPhoneLong = settings.voyahSteerPhoneLong
         pendingSyncMediaSessionAaMetadata = settings.syncMediaSessionWithAaMetadata
         pendingAutoResumePlaybackOnReconnect = settings.autoResumePlaybackOnReconnect
         pendingResolution = settings.resolutionId
@@ -531,6 +538,9 @@ class SettingsFragment : Fragment() {
         pendingUseGps = settings.useGpsForNavigation
         pendingShowNavigationNotifications = settings.showNavigationNotifications
         pendingEncarsNavigationBroadcast = settings.encarsNavigationBroadcast
+        pendingVoyahSteerEnabled = settings.voyahSteerEnabled
+        pendingVoyahSteerVoiceLong = settings.voyahSteerVoiceLong
+        pendingVoyahSteerPhoneLong = settings.voyahSteerPhoneLong
         pendingSyncMediaSessionAaMetadata = settings.syncMediaSessionWithAaMetadata
         pendingAutoResumePlaybackOnReconnect = settings.autoResumePlaybackOnReconnect
         pendingResolution = settings.resolutionId
@@ -758,6 +768,9 @@ class SettingsFragment : Fragment() {
         pendingUseGps?.let { if (it != settings.useGpsForNavigation) settings.useGpsForNavigation = it }
         pendingShowNavigationNotifications?.let { if (it != settings.showNavigationNotifications) settings.showNavigationNotifications = it }
         pendingEncarsNavigationBroadcast?.let { if (it != settings.encarsNavigationBroadcast) settings.encarsNavigationBroadcast = it }
+        pendingVoyahSteerEnabled?.let { if (it != settings.voyahSteerEnabled) settings.voyahSteerEnabled = it }
+        pendingVoyahSteerVoiceLong?.let { if (it != settings.voyahSteerVoiceLong) settings.voyahSteerVoiceLong = it }
+        pendingVoyahSteerPhoneLong?.let { if (it != settings.voyahSteerPhoneLong) settings.voyahSteerPhoneLong = it }
         pendingSyncMediaSessionAaMetadata?.let { if (it != settings.syncMediaSessionWithAaMetadata) settings.syncMediaSessionWithAaMetadata = it }
         pendingAutoResumePlaybackOnReconnect?.let { if (it != settings.autoResumePlaybackOnReconnect) settings.autoResumePlaybackOnReconnect = it }
         // The way back from a link the app measured as too slow: it lowered the profile after three
@@ -900,6 +913,8 @@ class SettingsFragment : Fragment() {
 
         settings.commit()
         AppLog.init(settings, requireContext().applicationContext)
+        // The Voyah steering receiver attaches to the OEM key service by its own switch.
+        App.provide(requireContext()).carKeysManager.onSettingsChanged(requireContext().applicationContext)
 
         // View mode is only the local rendering backend, so apply it to a running projection
         // live instead of requiring a restart, the same path Quick Settings and the stall
@@ -963,6 +978,9 @@ class SettingsFragment : Fragment() {
                         pendingUseGps != settings.useGpsForNavigation ||
                         pendingShowNavigationNotifications != settings.showNavigationNotifications ||
                         pendingEncarsNavigationBroadcast != settings.encarsNavigationBroadcast ||
+                        pendingVoyahSteerEnabled != settings.voyahSteerEnabled ||
+                        pendingVoyahSteerVoiceLong != settings.voyahSteerVoiceLong ||
+                        pendingVoyahSteerPhoneLong != settings.voyahSteerPhoneLong ||
                         pendingSyncMediaSessionAaMetadata != settings.syncMediaSessionWithAaMetadata ||
                         pendingAutoResumePlaybackOnReconnect != settings.autoResumePlaybackOnReconnect ||
                         pendingResolution != settings.resolutionId ||
@@ -2728,6 +2746,46 @@ class SettingsFragment : Fragment() {
                 stableId = "mediaKeyRoutingScopeHint",
                 textResId = R.string.media_key_routing_hint_common
             ))
+        }
+
+        // Voyah steering wheel. Only on a unit with the OEM key service it registers with.
+        if (VoyahKeyManagerSdk.isServiceInstalled(requireContext())) {
+            val voyahOn = pendingVoyahSteerEnabled ?: settings.voyahSteerEnabled
+            items.add(SettingItem.ToggleSettingEntry(
+                stableId = "voyahSteerEnabled",
+                nameResId = R.string.voyah_steer_enabled,
+                descriptionResId = R.string.voyah_steer_enabled_description,
+                isChecked = voyahOn,
+                onCheckedChanged = { isChecked ->
+                    pendingVoyahSteerEnabled = isChecked
+                    checkChanges()
+                    updateSettingsList()
+                }
+            ))
+            if (voyahOn) {
+                items.add(SettingItem.ToggleSettingEntry(
+                    stableId = "voyahSteerVoiceLong",
+                    nameResId = R.string.voyah_steer_voice_long,
+                    descriptionResId = R.string.voyah_steer_voice_long_description,
+                    isChecked = pendingVoyahSteerVoiceLong ?: settings.voyahSteerVoiceLong,
+                    onCheckedChanged = { isChecked ->
+                        pendingVoyahSteerVoiceLong = isChecked
+                        checkChanges()
+                        updateSettingsList()
+                    }
+                ))
+                items.add(SettingItem.ToggleSettingEntry(
+                    stableId = "voyahSteerPhoneLong",
+                    nameResId = R.string.voyah_steer_phone_long,
+                    descriptionResId = R.string.voyah_steer_phone_long_description,
+                    isChecked = pendingVoyahSteerPhoneLong ?: settings.voyahSteerPhoneLong,
+                    onCheckedChanged = { isChecked ->
+                        pendingVoyahSteerPhoneLong = isChecked
+                        checkChanges()
+                        updateSettingsList()
+                    }
+                ))
+            }
         }
 
         // --- Audio Settings ---

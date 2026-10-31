@@ -309,6 +309,32 @@ class Settings(private val context: Context) {
             prefs.edit().putBoolean("encars-navigation-broadcast", value).apply()
         }
 
+    /**
+     * Listen to the Voyah steering wheel's Voice and Phone buttons through the head unit's key
+     * service, while OHU's service runs. Off by default: it registers with an OEM service, and
+     * swallows every Voice press (see
+     * [com.andrerinas.openheadunit.input.VoiceKeyConsumePolicy]).
+     */
+    var voyahSteerEnabled: Boolean
+        get() = prefs.getBoolean("voyah-steer-enabled", false)
+        set(value) {
+            prefs.edit().putBoolean("voyah-steer-enabled", value).apply()
+        }
+
+    /** Long-press Voice opens the assistant (and Voice is swallowed). */
+    var voyahSteerVoiceLong: Boolean
+        get() = prefs.getBoolean("voyah-steer-voice-long", true)
+        set(value) {
+            prefs.edit().putBoolean("voyah-steer-voice-long", value).apply()
+        }
+
+    /** Long-press Phone opens Android Auto's phone screen. */
+    var voyahSteerPhoneLong: Boolean
+        get() = prefs.getBoolean("voyah-steer-phone-long", true)
+        set(value) {
+            prefs.edit().putBoolean("voyah-steer-phone-long", value).apply()
+        }
+
     /** Mirror phone now-playing (title, artist, duration, art) in the system media session. */
     var syncMediaSessionWithAaMetadata: Boolean
         get() = prefs.getBoolean(KEY_SYNC_MEDIA_SESSION_AA_METADATA, false)

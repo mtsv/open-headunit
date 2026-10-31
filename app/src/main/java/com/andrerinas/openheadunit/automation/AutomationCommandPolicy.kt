@@ -84,6 +84,8 @@ object AutomationCommandPolicy {
         HeadUnitCommand.ACTION_REFRESH_SENSORS to AapService.ACTION_REFRESH_SENSORS,
         HeadUnitCommand.ACTION_RESTART_AUDIO to AapService.ACTION_RESTART_AUDIO,
         HeadUnitCommand.ACTION_RAISE_PROJECTION to AapService.ACTION_RAISE_PROJECTION,
+        HeadUnitCommand.ACTION_VOICE_ASSISTANT to AapService.ACTION_VOICE_ASSISTANT,
+        HeadUnitCommand.ACTION_OPEN_PHONE to AapService.ACTION_OPEN_PHONE,
         // Relayed by its own name rather than an AapService constant: the handler ships with the
         // driver-selection feature, and the two strings are the same either way.
         HeadUnitCommand.ACTION_NATIVE_AA_CANCEL_POKE to HeadUnitCommand.ACTION_NATIVE_AA_CANCEL_POKE,

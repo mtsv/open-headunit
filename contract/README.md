@@ -65,6 +65,8 @@ Open to any caller, like the steering-wheel key receivers already are.
 | `ACTION_REFRESH_SENSORS` | | Re-reads sensors. Also answers to `aap.action.REFRESH_SENSORS`. |
 | `ACTION_RESTART_AUDIO` | | Restarts the audio pipeline. Also answers to `aap.action.RESTART_AUDIO`. |
 | `ACTION_RAISE_PROJECTION` | | Brings the projection to the front. Also answers to `aap.action.RAISE_PROJECTION`. |
+| `ACTION_VOICE_ASSISTANT` | | Brings the projection to the front and opens the voice assistant; sent again while it listens, closes it. Needs a session. |
+| `ACTION_OPEN_PHONE` | | Brings the projection to the front and opens Android Auto's phone screen. Needs a session. |
 | `ACTION_QUERY_STATE` | | Replies with build and session state. |
 | `ACTION_LOG_MARKER` | `text` | Writes `AutomationMarker: <text>` into the log at WARN, so two runs can share one capture. |
 

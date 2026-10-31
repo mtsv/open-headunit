@@ -119,6 +119,17 @@ class CarKeysManager {
         }
     }
 
+    /** Settings were saved; lets a registered receiver attach or detach by its own setting. */
+    fun onSettingsChanged(context: Context) {
+        for (r in registered) {
+            try {
+                r.onSettingsChanged(context)
+            } catch (e: Exception) {
+                AppLog.e("CarKeysManager: ${r.javaClass.simpleName} failed to apply settings", e)
+            }
+        }
+    }
+
     /** Backward compatibility alias */
     fun registerReceivers(context: Context) {
         registerIdleReceivers(context)

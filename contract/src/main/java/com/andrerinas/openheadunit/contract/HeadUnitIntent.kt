@@ -224,6 +224,18 @@ object HeadUnitCommand {
     const val ACTION_RAISE_PROJECTION = "$PREFIX.ACTION_RAISE_PROJECTION"
 
     /**
+     * Brings the projection to the front and opens the phone's voice assistant; a second one while
+     * it is listening closes it again, as Android Auto's own button does. Inert with no session.
+     */
+    const val ACTION_VOICE_ASSISTANT = "$PREFIX.ACTION_VOICE_ASSISTANT"
+
+    /**
+     * Brings the projection to the front and opens Android Auto's phone screen (a CALL key press).
+     * Inert with no session.
+     */
+    const val ACTION_OPEN_PHONE = "$PREFIX.ACTION_OPEN_PHONE"
+
+    /**
      * The original spellings of the three above, still accepted. They were the internal service
      * actions before this surface existed, so anything already scripted against them keeps working.
      */

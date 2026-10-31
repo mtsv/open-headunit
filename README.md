@@ -171,6 +171,7 @@ adb shell am start -a android.intent.action.VIEW -d "headunit://connect?ip=192.1
 - Native AA: remember a unit that refuses every banded WiFi Direct group
 - Native AA: connect faster
 - Added: Hide the Android Auto bar. A round <-> button, a mapped key or Quick Settings slides the bar off screen and gives its room to the map, with the hidden area tuned live per side, and the button's size and opacity set in Settings
+- Added: Voyah steering wheel. Long-press Voice opens the assistant and long-press Phone opens the phone screen in Android Auto, bringing it to the front, while short presses keep working as before and the head unit no longer says voice commands are not implemented
 
 ### v.3.5.0
 - Native AA: reconnect to a network that is still there, wake the phone over Bluetooth or the external module, bring a lost group or hotspot back after sleep, boot or ACC wake, stop advertising an address that moves, and pick, wake or hold back only for a phone that is on

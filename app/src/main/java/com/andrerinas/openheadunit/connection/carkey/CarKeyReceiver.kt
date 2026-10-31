@@ -7,6 +7,7 @@ import com.andrerinas.openheadunit.App
 import com.andrerinas.openheadunit.connection.CommManager
 import com.andrerinas.openheadunit.connection.carkey.byd.CarBydReceiver
 import com.andrerinas.openheadunit.connection.carkey.fyt.CarFYTReceiver
+import com.andrerinas.openheadunit.connection.carkey.voyah.CarVoyahReceiver
 import com.andrerinas.openheadunit.contract.KeyIntent
 import com.andrerinas.openheadunit.utils.AppLog
 
@@ -19,6 +20,7 @@ interface CarKeyReceiver {
                 CarKeyBroadcastReceiver(),
                 CarBydReceiver(),
                 CarFYTReceiver(),
+                CarVoyahReceiver(),
             )
         }
     }
@@ -40,6 +42,12 @@ interface CarKeyReceiver {
 
     @Throws(Exception::class)
     fun unregister()
+
+    /**
+     * The user saved settings while this receiver is registered. For a receiver whose own setting
+     * decides whether it attaches to anything, such as the Voyah one. Main thread.
+     */
+    fun onSettingsChanged(context: Context) {}
 
 
     /** Single key press or release — broadcasts for learning and projection handling. */

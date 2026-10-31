@@ -105,7 +105,9 @@ class AutomationCommandPolicyTest {
             HeadUnitCommand.ACTION_END_SESSION_STAY_ARMED to AapService.ACTION_END_SESSION_STAY_ARMED,
             HeadUnitCommand.ACTION_REFRESH_SENSORS to AapService.ACTION_REFRESH_SENSORS,
             HeadUnitCommand.ACTION_RESTART_AUDIO to AapService.ACTION_RESTART_AUDIO,
-            HeadUnitCommand.ACTION_RAISE_PROJECTION to AapService.ACTION_RAISE_PROJECTION
+            HeadUnitCommand.ACTION_RAISE_PROJECTION to AapService.ACTION_RAISE_PROJECTION,
+            HeadUnitCommand.ACTION_VOICE_ASSISTANT to AapService.ACTION_VOICE_ASSISTANT,
+            HeadUnitCommand.ACTION_OPEN_PHONE to AapService.ACTION_OPEN_PHONE
         )
         for ((command, serviceAction) in expected) {
             assertEquals(
@@ -359,7 +361,8 @@ class AutomationCommandPolicyTest {
         HeadUnitCommand.ACTION_NATIVE_AA_CANCEL_POKE,
         HeadUnitCommand.ACTION_NEARBY_CONNECT, HeadUnitCommand.ACTION_CHECK_USB,
         HeadUnitCommand.ACTION_REFRESH_SENSORS, HeadUnitCommand.ACTION_RESTART_AUDIO,
-        HeadUnitCommand.ACTION_RAISE_PROJECTION, HeadUnitCommand.LEGACY_ACTION_REFRESH_SENSORS,
+        HeadUnitCommand.ACTION_RAISE_PROJECTION, HeadUnitCommand.ACTION_VOICE_ASSISTANT,
+        HeadUnitCommand.ACTION_OPEN_PHONE, HeadUnitCommand.LEGACY_ACTION_REFRESH_SENSORS,
         HeadUnitCommand.LEGACY_ACTION_RESTART_AUDIO, HeadUnitCommand.LEGACY_ACTION_RAISE_PROJECTION,
         HeadUnitCommand.ACTION_QUERY_STATE, HeadUnitCommand.ACTION_SET_SETTINGS,
         HeadUnitCommand.ACTION_GET_SETTINGS, HeadUnitCommand.ACTION_RESET_SETTINGS,

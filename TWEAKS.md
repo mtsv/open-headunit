@@ -318,3 +318,111 @@ captured drive 883 of 1066 fixes had `accuracy=0`, which a consumer may read as 
 | Sampling and skew verdicts | `location/LocationWireDiagnostics.kt` |
 | The accuracy floor | `location/LocationAccuracyPolicy.kt` |
 | Encoding a fix, and the wire sample | `aap/protocol/messages/LocationUpdateEvent.kt` |
+
+## Voyah steering wheel: Voice and Phone
+
+The Voyah Free's steering wheel has **Voice** and **Phone** buttons that the head unit keeps for
+itself, so Android Auto never hears about them. This tweak gives each a long press inside Android
+Auto and leaves the short presses where they were:
+
+| Button | Short press | Long press |
+|---|---|---|
+| Voice | unchanged (Voyah Tweaks' voice commands) | Google Assistant in Android Auto |
+| Phone | unchanged (the head unit's call screen) | Android Auto's phone screen |
+
+A long press brings Open Headunit to the front first if it is in the background. A second long
+press of Voice while the assistant is listening closes it again. The head unit's own "voice
+commands not implemented" message no longer appears, at all, while Open Headunit is running.
+
+It is off by default, and the settings only appear on a head unit that has the Voyah key service.
+
+### Using it
+
+1. In **Settings**, under **Input**, turn on **Voyah steering wheel buttons**.
+2. **Long-press Voice: Google Assistant** and **Long-press Phone: Android Auto phone** are on by
+   default; turn either off to leave that button alone.
+3. During a session, hold a button for about a second (the head unit's own long-press time).
+
+With no session, a long press of Voice does nothing (but the message still stays away), and a long
+press of Phone does what it always did: nothing.
+
+**Without the steering wheel:** two automation commands do the same thing, for Tasker, MacroDroid
+or `adb`, on any head unit:
+
+```
+adb shell am broadcast -n com.andrerinas.headunitrevived/com.andrerinas.openheadunit.automation.AutomationReceiver \
+  -a com.andrerinas.openheadunit.ACTION_VOICE_ASSISTANT      # or ACTION_OPEN_PHONE
+```
+
+### Status: works on the car (build 13, Voyah Free, Voyah Tweaks installed)
+
+Tested on 2026-10-31. Both buttons work with a short and a long press, as in the table above. The
+stock message does not appear.
+
+### Reading the log
+
+The buttons are read through the head unit's own key-service SDK, which Open Headunit loads from
+the unit at run time and checks the shape of before using. Each time the service starts and each
+time settings are saved, the log first says `VoyahKeys: setting on|off,
+com.qinggan.keymanager.service visible|not visible, currently attached|detached`. It attaches only
+when both are on/visible, and then says which of these happened:
+
+- `VoyahKeys: com.qinggan.system.KeyManager from …` followed by the SDK's whole public surface,
+  then `init onResult(true)` (or, after 3 s without one, `registering listeners (no init result …)`)
+  and `registerInterceptListener(…) -> …` — it attached. Every button event is then logged as
+  `VoyahKeys: intercept|observe onKeyDown (DOWN) int=… keyCode=… consume=…`. Long-press the buttons
+  and look for `VoyahKeys: long press VOICE`.
+- `VoyahKeys: cannot use … : <reason>` or `… not found in …` — the SDK has a shape Open Headunit
+  does not drive yet. The surface logged just above it is what is needed to add it; send the log.
+
+The automation commands above work regardless.
+
+### How it works
+
+The presses never become Android key events or a broadcast: they go from the car to
+`com.qinggan.keymanager.service`, which hands them to the OEM apps registered with it. Voyah
+Tweaks and VoyahTune both get them by injecting a hook into that process, and two hooks on the same
+method fight (VoyahTune's installer disables Voyah Tweaks for that reason), so Open Headunit does
+not inject anything. It registers through the OEM's client SDK, the way the stock phone and speech
+apps do:
+
+- **Voice** through an *intercept* listener. The SDK reports each press as callbacks: a short
+  press is `onKeyDown` then `onKeyShortClick`; a long one is `onKeyDown`, then
+  `onKeyHoldPressStart` and `onKeyLongPressStart` at about a second, then `onKeyLongPressStop`.
+  With Voyah Tweaks installed, only the three long-press callbacks are swallowed, which is what
+  keeps the message away; the short-press ones pass on to Voyah Tweaks. (An earlier build
+  swallowed them all, believing Voyah Tweaks took short presses before any listener; it does not,
+  and its voice commands stopped.) Without Voyah Tweaks every Voice callback is swallowed, since the
+  stock short press shows the same message.
+- **Phone** through an *observing* listener that never swallows anything, so the stock short
+  press still opens the call screen.
+
+A press is long when the key service says so (`onKeyLongPressStart`), not by a timer of Open
+Headunit's own: a timer that fired sooner would class a press as long that the service then hands
+on as short, and both would act on it.
+
+The listeners stay registered for as long as Open Headunit's service runs, not only during a
+session, so the message stays away when nothing is projecting. Stopping Open Headunit brings it
+back.
+
+| Steering key | OEM key code |
+|---|---|
+| Voice | 130 |
+| Phone | 128 |
+
+(From VoyahTune's capture on a live H97C unit. Star is 3090 and DVR 173; neither is used here.)
+
+### Code
+
+| Part | Where |
+|---|---|
+| Long vs short | `input/SteeringLongPressPolicy.kt`, fed by `KeyManagerApiShape.callbackFor` |
+| Which events are swallowed | `input/VoiceKeyConsumePolicy.kt` |
+| Raise, then assistant or phone | `aap/SteeringActionPolicy.kt`, run by `aap/SteeringActionRunner.kt` |
+| Which SDK shapes are accepted | `connection/carkey/voyah/KeyManagerApiShape.kt` |
+| Loading the SDK from the unit, and the log dump | `connection/carkey/voyah/VoyahKeyManagerSdk.kt` |
+| The listeners | `connection/carkey/voyah/CarVoyahReceiver.kt` |
+| Attaching when the setting changes | `connection/carkey/CarKeysManager.onSettingsChanged` |
+| Automation commands | `contract/.../HeadUnitIntent.kt`, `automation/AutomationCommandPolicy.kt`, `aap/AapService.kt` |
+| Persisted settings | `utils/Settings.kt`, keys `voyah-steer-*` (also in the settings backup) |
+| Package visibility for the OEM apps | `AndroidManifest.xml`, `<queries>` |

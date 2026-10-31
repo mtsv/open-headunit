@@ -26,6 +26,13 @@
         <!-- Head unit mod that draws our maneuvers on the instrument cluster. Android 11 filters
              package visibility, and a target we cannot see fails the broadcast silently. -->
         <package android:name="ru.kachalin.voyahtweaks" />
+        <!-- Voyah steering wheel: the OEM key service the receiver registers with, and the system
+             apps its client SDK may be loaded from (CarVoyahReceiver, VoyahKeyManagerSdk). -->
+        <package android:name="com.qinggan.keymanager.service" />
+        <package android:name="com.qinggan.app.vehicle" />
+        <package android:name="com.qinggan.bluetoothphone" />
+        <package android:name="com.qinggan.sttservice" />
+        <package android:name="com.qinggan.app.launcher" />
     </queries>
 
     <uses-feature
@@ -308,6 +315,8 @@
                 <action android:name="com.andrerinas.openheadunit.ACTION_REFRESH_SENSORS" />
                 <action android:name="com.andrerinas.openheadunit.ACTION_RESTART_AUDIO" />
                 <action android:name="com.andrerinas.openheadunit.ACTION_RAISE_PROJECTION" />
+                <action android:name="com.andrerinas.openheadunit.ACTION_VOICE_ASSISTANT" />
+                <action android:name="com.andrerinas.openheadunit.ACTION_OPEN_PHONE" />
                 <action android:name="com.andrerinas.openheadunit.aap.action.REFRESH_SENSORS" />
                 <action android:name="com.andrerinas.openheadunit.aap.action.RESTART_AUDIO" />
                 <action android:name="com.andrerinas.openheadunit.aap.action.RAISE_PROJECTION" />
