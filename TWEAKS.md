@@ -245,7 +245,9 @@ Two independent pieces of evidence:
 So if the car's GPS is better than the phone's — a phone being spoofed, or just a tablet with a
 better antenna than a handset in a cupholder — this will not fix the map. Nothing in the
 projection protocol appears able to. The remaining route is a phone-side app publishing the head
-unit's fixes as a **mock location provider**, which is different software and not part of OHU.
+unit's fixes as a **mock location provider**, which is different software and not part of OHU; it
+is planned, and written up in
+[TODO/phone-side-mock-location-provider.md](TODO/phone-side-mock-location-provider.md).
 
 What the fork did fix is the part that was genuinely broken: the head unit now keeps sending a
 correct position for the whole drive rather than stopping a few seconds after the projection goes

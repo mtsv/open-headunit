@@ -17,6 +17,11 @@ This repository is a fork (see **Fork versioning** below). The features it adds 
 described in `TWEAKS.md`: what each does, how to use it, and where its code lives. Read it before
 changing one of them, and add an entry there for each new one.
 
+Known bugs and planned features are tracked in `TODO_features_and_bugs.md`: one line each, linking
+to a details file under `TODO/`. Add an entry (line + details file) for each new known bug or
+planned feature. When one is implemented or fixed, remove both its line and its `TODO/` file in
+the same change.
+
 ## Build and test
 
 Windows shell: use `gradlew.bat`; the commands below use the `./gradlew` spelling.
