@@ -37,6 +37,12 @@ these status checks:
 - **`main` may show red** on `Build`/`Unit tests` until the known
   `SettingsFragment.kt:767` smart-cast compile error (issue #659) is fixed.
   This is expected, not a CI misconfiguration.
+- **One test is skipped on Windows.**
+  `NearbySocketRetirementTest.inheritedSocketImplementationIsClosedAlongWithNearbyStreams`
+  closes a socket and then rebinds its loopback port. On Windows the rebind fails with
+  `BindException: Address already in use` even on an unchanged checkout, so the test
+  skips itself there (a JUnit assumption, reported as skipped, not passed). CI runs on
+  Linux and still runs it.
 - **No lint job (yet).** Android Lint is not run in CI. The long hang in
   `:app:lintAnalyzeGithubDebug` was not the generated protobuf sources: it was
   `androidx.fragment`'s `UnsafeFragmentLifecycleObserverDetector` (the detector

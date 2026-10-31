@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeFalse
 import org.junit.Test
 import java.net.SocketException
 import java.util.concurrent.CountDownLatch
@@ -132,7 +133,17 @@ class NearbySocketRetirementTest {
         } finally { resume.countDown(); worker.shutdownNow() }
     }
 
+    /**
+     * Skipped on Windows. The final rebind of the just-released loopback port throws
+     * `BindException: Address already in use` there even on an unchanged checkout, so on Windows
+     * it cannot tell a leaked SocketImpl from the OS still holding the port. CI runs on Linux, where
+     * the check means what it says.
+     */
     @Test fun inheritedSocketImplementationIsClosedAlongWithNearbyStreams() {
+        assumeFalse(
+            "rebinding a just-closed port fails on Windows regardless of the code under test",
+            System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true),
+        )
         val socket = NearbySocket()
         // SocketProjectionConnection initializes SocketImpl through inherited socket options.
         // Bind its otherwise unused descriptor so ownership can be observed without JDK internals.
